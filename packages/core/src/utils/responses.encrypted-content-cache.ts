@@ -448,32 +448,24 @@ function canonicalScopeMessage(message: MessageLike) {
   return canonical;
 }
 
-function conversationScope(messages: MessageLike[], namespace: string): string {
-  const scopeMessages = messages
-    .filter((message) => message.role !== "system")
-    .map((message) => canonicalScopeMessage(message));
-
-  return hash(
-    stableStringify({
-      namespace,
-      messages: scopeMessages,
-    })
-  );
-}
-
-function assistantNeedsEncryptedReasoning(
-  message: MessageLike,
-  priorMessages: MessageLike[]
-): boolean {
-  if (message.tool_calls?.length) return true;
-
-  for (let i = priorMessages.length - 1; i >= 0; i--) {
-    const prior = priorMessages[i];
-    if (prior.role === "tool") return true;
-    if (prior.role === "user" || prior.role === "system") return false;
-  }
-
-  return false;
+function createConversationScope(namespace: string) {
+  // Hash canonical messages once as history grows, rather than reserializing
+  // every preceding turn for each assistant (quadratic on long histories).
+  // This retains stableStringify({ messages, namespace })'s exact byte shape.
+  const digest = createHash("sha256").update('{"messages":[');
+  let count = 0;
+  return {
+    append(message: MessageLike): void {
+      if (message.role === "system") return;
+      if (count++) digest.update(",");
+      digest.update(stableStringify(canonicalScopeMessage(message)));
+    },
+    current(): string {
+      return digest.copy()
+        .update(`],"namespace":${JSON.stringify(namespace)}}`)
+        .digest("hex");
+    },
+  };
 }
 
 function getInlineEncryptedPayload(
@@ -602,8 +594,8 @@ function encryptedReasoningClientSession(
 }
 
 export function buildEncryptedReasoningCacheNamespace(
-  request: Pick<UnifiedChatRequest, "model" | "thinking" | "reasoning">,
-  provider?: Pick<LLMProvider, "name" | "baseUrl">,
+  request: Pick<UnifiedChatRequest, "model" | "thinking" | "reasoning" | "prompt_cache_key">,
+  provider?: Pick<LLMProvider, "name" | "baseUrl"> & Partial<Pick<LLMProvider, "apiKey">>,
   context?: TransformerContext
 ): string {
   const session = encryptedReasoningClientSession(context);
@@ -611,13 +603,14 @@ export function buildEncryptedReasoningCacheNamespace(
     stableStringify({
       provider: provider?.name || "",
       baseUrl: provider?.baseUrl || "",
+      credential: provider?.apiKey ? hash(provider.apiKey) : null,
       model: request.model || "",
       thinking: request.thinking || null,
       reasoning: request.reasoning || null,
       // Opaque Responses state must never cross client conversations. Hash the
       // stable session id before it enters the already-hashed namespace so raw
       // identifiers are not retained in cache keys or diagnostics.
-      clientSession: session ? hash(session) : "anonymous",
+      clientSession: session ? hash(session) : request.prompt_cache_key ? hash(request.prompt_cache_key) : "anonymous",
     })
   );
 }
@@ -625,12 +618,12 @@ export function buildEncryptedReasoningCacheNamespace(
 /**
  * Anthropic/Chat clients cannot round-trip Responses `encrypted_content`.
  * For those inbound protocols, request ciphertext from the destination and
- * restore it onto assistant tool turns from a local cache keyed like DeepSeek's
+ * restore it onto assistant turns from a local cache keyed like DeepSeek's
  * reasoning replay cache.
  */
 export function prepareEncryptedReasoningReplay(
   request: UnifiedChatRequest,
-  provider: Pick<LLMProvider, "name" | "baseUrl"> | undefined,
+  provider: (Pick<LLMProvider, "name" | "baseUrl"> & Partial<Pick<LLMProvider, "apiKey">>) | undefined,
   context?: TransformerContext
 ): { restoredFromCache: number; includeRequested: boolean } {
   if (!isCrossProtocolResponsesClient(context)) {
@@ -645,32 +638,27 @@ export function prepareEncryptedReasoningReplay(
     provider,
     context
   );
-  const priorMessages: MessageLike[] = [];
+  const conversation = createConversationScope(namespace);
   let restoredFromCache = 0;
 
   for (const message of request.messages as MessageLike[]) {
     if (message.role === "assistant") {
-      const scope = conversationScope(priorMessages, namespace);
-      const needsReplay = assistantNeedsEncryptedReasoning(
-        message,
-        priorMessages
-      );
-
-      if (needsReplay) {
-        const inline = getInlineEncryptedPayload(message);
-        if (!inline) {
-          const restored = lookupEncryptedReasoning(message, scope);
-          if (restored) {
-            applyEncryptedPayload(message, restored);
-            restoredFromCache++;
-          }
+      const scope = conversation.current();
+      // Chat clients drop ciphertext on text answers too. Restore every
+      // matching assistant turn so subsequent requests keep the provider's
+      // reasoning state and the same cacheable prefix.
+      if (!getInlineEncryptedPayload(message)) {
+        const restored = lookupEncryptedReasoning(message, scope);
+        if (restored) {
+          applyEncryptedPayload(message, restored);
+          restoredFromCache++;
         }
       }
 
       storeAssistantEncryptedReasoning(message, scope);
     }
 
-    priorMessages.push(message);
+    conversation.append(message);
   }
 
   // Always ask Responses destinations for ciphertext when the client cannot
@@ -689,10 +677,7 @@ export function prepareEncryptedReasoningReplay(
     (context.req as any)[CONTEXT_KEY] = {
       enabled: true,
       namespace,
-      requestScope: conversationScope(
-        request.messages as MessageLike[],
-        namespace
-      ),
+      requestScope: conversation.current(),
     } satisfies RequestContextState;
   }
 

@@ -280,6 +280,18 @@ function validateAndNormalizeChatRequest(body: any): UnifiedChatRequest {
     }
   }
 
+  if (
+    body.prompt_cache_key !== undefined &&
+    (typeof body.prompt_cache_key !== "string" || !body.prompt_cache_key.trim())
+  ) {
+    throw createApiError(
+      "prompt_cache_key must be a non-empty string",
+      400,
+      "invalid_prompt_cache_key",
+      "invalid_request_error"
+    );
+  }
+
   if (body.stream_options != null && body.stream !== true) {
     throw createApiError(
       "stream_options requires stream: true",
@@ -379,6 +391,9 @@ function validateAndNormalizeChatRequest(body: any): UnifiedChatRequest {
 
   if (body.stream_options) {
     unified.stream_options = body.stream_options;
+  }
+  if (body.prompt_cache_key !== undefined) {
+    unified.prompt_cache_key = body.prompt_cache_key;
   }
   if (hasMaxTokens) {
     unified.max_tokens = Number(body.max_tokens);
@@ -577,7 +592,7 @@ function normalizeChatMessage(msg: any): any {
       "invalid_request_error"
     );
   }
-  if (msg.tool_calls !== undefined) {
+  if (msg.tool_calls != null) {
     if (role !== "assistant" || !Array.isArray(msg.tool_calls)) {
       throw createApiError(
         "tool_calls must be an array on assistant messages",
@@ -605,7 +620,12 @@ function normalizeChatMessage(msg: any): any {
     }
   }
   // developer → system (Unified system content)
-  const normalized = role === "developer" ? { ...msg, role: "system" } : msg;
+  const normalized = {
+    ...msg,
+    ...(role === "developer" ? { role: "system" } : {}),
+    ...(msg.thinking ? { thinking: { ...msg.thinking } } : {}),
+  };
+  if (normalized.tool_calls === null) delete normalized.tool_calls;
   if (normalized.role === "assistant") {
     syncAssistantThinkingFields(normalized);
   }
@@ -651,6 +671,7 @@ function projectChatClientAssistantThinking(message: any): void {
   if (!message || typeof message !== "object") return;
   syncAssistantThinkingFields(message);
   delete message.thinking;
+  if (message.tool_calls === null) delete message.tool_calls;
 }
 
 /**

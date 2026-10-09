@@ -168,6 +168,8 @@ export interface UnifiedChatRequest {
     budget_tokens?: number;
   };
   parallel_tool_calls?: boolean;
+  /** Stable client-provided affinity for provider prompt caching. */
+  prompt_cache_key?: string;
   cache_control?: {
     type?: string;
     ttl?: "5m" | "1h";
