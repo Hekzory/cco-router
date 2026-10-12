@@ -27,6 +27,197 @@ import {
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const OPENCODE_VERSION = "1.18.32";
 const OPENCODE_USER_AGENT = `opencode/${OPENCODE_VERSION}`;
+const OPENCODE_MAX_TOOL_SCHEMA_DEPTH = 10;
+
+const JSON_SCHEMA_CHILD_KEYS = new Set([
+  "properties",
+  "patternProperties",
+  "$defs",
+  "definitions",
+  "items",
+  "prefixItems",
+  "additionalProperties",
+  "unevaluatedProperties",
+  "unevaluatedItems",
+  "propertyNames",
+  "not",
+  "if",
+  "then",
+  "else",
+  "contains",
+  "contentSchema",
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "dependentSchemas",
+  "dependencies",
+]);
+
+/** Count every object/array in a JSON value, including schema keyword wrappers. */
+function jsonContainerDepth(value: any): number {
+  if (!value || typeof value !== "object") return 0;
+  let childDepth = 0;
+  for (const child of Object.values(value)) {
+    childDepth = Math.max(childDepth, jsonContainerDepth(child));
+  }
+  return 1 + childDepth;
+}
+
+/** Bound tool schema JSON containers for OpenCode free-tier provider requests. */
+function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<string>): any {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return schema;
+  }
+  const limited: Record<string, any> = { ...schema };
+  let changed = false;
+  let changedConditional = false;
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === "$ref" && lostRefs?.has(value as string)) {
+      delete limited[key];
+      changed = true;
+      continue;
+    }
+    if (!JSON_SCHEMA_CHILD_KEYS.has(key)) {
+      if (depth + jsonContainerDepth(value) > OPENCODE_MAX_TOOL_SCHEMA_DEPTH) {
+        delete limited[key];
+        changed = true;
+      }
+      continue;
+    }
+    if (
+      key === "properties" ||
+      key === "patternProperties" ||
+      key === "$defs" ||
+      key === "definitions" ||
+      key === "dependentSchemas" ||
+      key === "dependencies"
+    ) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        // A schema map and its child schema each add a JSON container.
+        // Without room for the children, relax this node as a whole so
+        // required/additionalProperties cannot reject the removed properties.
+        if (
+          depth + 1 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH ||
+          (Object.keys(value).length > 0 &&
+            depth + 2 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH)
+        ) return {};
+        const entries = Object.entries(value).map(([name, child]) => {
+          const next = Array.isArray(child)
+            ? child
+            : limitToolSchemaDepth(child, depth + 2, lostRefs);
+          if (next !== child) changed = true;
+          return [name, next] as const;
+        });
+        if (entries.some(([name, child]) => child !== (value as any)[name])) {
+          limited[key] = Object.fromEntries(entries);
+        }
+      }
+    } else if (Array.isArray(value)) {
+      // Combinators and tuple items add an array before each child schema.
+      if (
+        depth + 1 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH ||
+        (value.some((child) => child && typeof child === "object") &&
+          depth + 2 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH)
+      ) {
+        delete limited[key];
+        changed = true;
+      } else {
+        const next = value.map((child) => limitToolSchemaDepth(child, depth + 2, lostRefs));
+        if (next.some((child, index) => child !== value[index])) {
+          // Relaxing oneOf branches can make a valid value match multiple
+          // branches. Drop the exclusivity constraint instead of narrowing it.
+          if (key === "oneOf") delete limited[key];
+          else limited[key] = next;
+          changed = true;
+        }
+      }
+    } else {
+      if (!value || typeof value !== "object") continue;
+      const next = depth + 1 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH
+        ? undefined
+        : limitToolSchemaDepth(value, depth + 1, lostRefs);
+      if (next !== value) {
+        // Broadening a negated schema narrows its complement. Relax the
+        // enclosing constraint, including coupled conditional branches.
+        if (key === "not" || key === "contains" || next === undefined) {
+          delete limited[key];
+        }
+        else limited[key] = next;
+        if (key === "if" || key === "then" || key === "else") {
+          changedConditional = true;
+        }
+        changed = true;
+      }
+    }
+  }
+  if (changedConditional) {
+    delete limited.if;
+    delete limited.then;
+    delete limited.else;
+  }
+  if (changed) {
+    // Broadening contains can violate maxContains; removing prefixItems
+    // while retaining items=false can prohibit formerly valid tuple entries.
+    if (schema.contains !== undefined && limited.contains === undefined) {
+      delete limited.minContains;
+      delete limited.maxContains;
+    }
+    if (schema.prefixItems !== undefined && limited.prefixItems === undefined) {
+      delete limited.items;
+    }
+    // Relaxed branches may evaluate fewer properties/items. Keeping an
+    // unevaluated=false constraint would then reject previously valid values.
+    delete limited.unevaluatedProperties;
+    delete limited.unevaluatedItems;
+  }
+  return changed ? limited : schema;
+}
+
+/** Local JSON pointers can target constraints removed by the depth bound. */
+function resolvesLocalPointer(schema: any, ref: string): boolean {
+  if (ref === "#") return true;
+  if (!ref.startsWith("#/")) return false;
+  try {
+    const segments = decodeURIComponent(ref.slice(2)).split("/");
+    for (const segment of segments) {
+      const key = segment.replace(/~1/g, "/").replace(/~0/g, "~");
+      if (!schema || typeof schema !== "object" || !Object.hasOwn(schema, key)) return false;
+      schema = schema[key];
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function localSchemaRefs(schema: any, refs = new Set<string>()): Set<string> {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return refs;
+  if (typeof schema.$ref === "string" && schema.$ref.startsWith("#/")) refs.add(schema.$ref);
+  for (const key of JSON_SCHEMA_CHILD_KEYS) {
+    const value = schema[key];
+    if (["properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"].includes(key)) {
+      for (const child of Object.values(value ?? {})) localSchemaRefs(child, refs);
+    } else if (Array.isArray(value)) {
+      for (const child of value) localSchemaRefs(child, refs);
+    } else localSchemaRefs(value, refs);
+  }
+  return refs;
+}
+
+function boundToolSchema(schema: any): any {
+  let bounded = limitToolSchemaDepth(schema);
+  if (bounded === schema) return schema;
+  // Reuse the relaxation rules so dropping a lost reference under not/oneOf
+  // cannot narrow validation. Repeat because dropping a branch can remove
+  // another reference target. Pre-existing unresolved refs are left untouched.
+  while (true) {
+    const lost = new Set([...localSchemaRefs(bounded)].filter(
+      (ref) => resolvesLocalPointer(schema, ref) && !resolvesLocalPointer(bounded, ref)
+    ));
+    if (!lost.size) return bounded;
+    bounded = limitToolSchemaDepth(bounded, 1, lost);
+  }
+}
 
 // Free-tier gate fingerprint (curl-verified 2026-09-24 against
 // https://opencode.ai/zen/v1/responses, model muse-spark-1.3-contributor-free):
@@ -205,6 +396,7 @@ export class OpencodeHeadersTransformer implements Transformer {
       body = this.ensureStreamedForFreeTier(body, context);
       const gate = this.ensureGateStubTools(body);
       body = gate.body;
+      body = this.limitFreeTierToolSchemas(body, context);
       body = this.ensureDetailedSummaryForFreeTier(body, context);
       if (gate.aliases) {
         // processResponseTransformers (routes.ts) builds a FRESH context for
@@ -1199,6 +1391,33 @@ export class OpencodeHeadersTransformer implements Transformer {
     }
     if (!added) return { body };
     return { body: { ...body, tools: [...existing, ...stubs] }, aliases };
+  }
+
+  private limitFreeTierToolSchemas(body: any, context: any): any {
+    if (!Array.isArray(body?.tools)) return body;
+    const shape = OpencodeHeadersTransformer.outgoingToolShape(body, body.tools);
+    const bounded: any[] = [];
+    const tools = body.tools.map((tool: any) => {
+      const fn = shape === "chat" ? tool?.function : tool;
+      if (!fn?.parameters || typeof fn.parameters !== "object") return tool;
+      const parameters = boundToolSchema(fn.parameters);
+      if (parameters === fn.parameters) return tool;
+      bounded.push({
+        name: fn.name,
+        beforeDepth: jsonContainerDepth(fn.parameters),
+        afterDepth: jsonContainerDepth(parameters),
+      });
+      if (shape === "chat") {
+        return { ...tool, function: { ...fn, parameters } };
+      }
+      return { ...tool, parameters };
+    });
+    if (!bounded.length) return body;
+    context?.req?.log?.debug?.(
+      { type: "opencode_tool_schema_depth", limit: OPENCODE_MAX_TOOL_SCHEMA_DEPTH, tools: bounded },
+      "opencode: bounded tool schema depth"
+    );
+    return { ...body, tools };
   }
 
   private static readonly GATE_STUB_COUNTERPARTS: Record<string, string[]> = {

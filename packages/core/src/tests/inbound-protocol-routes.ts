@@ -145,6 +145,13 @@ async function buildApp() {
           models: ["spark"],
           transformer: { use: ["openai-responses", "opencode-headers"] },
         },
+        ...["responses", "chat/completions"].map((wire) => ({
+          name: wire === "responses" ? "zen-free-responses" : "zen-free-chat",
+          api_base_url: `https://opencode.ai/zen/v1/${wire}`,
+          api_key: "synthetic-zen-key",
+          models: ["matrix-free"],
+          transformer: { use: wire === "responses" ? ["openai-responses", "opencode-headers"] : ["OpenAI", "opencode-headers"] },
+        })),
         {
           name: "xai",
           api_base_url: "https://xai.invalid/v1",
@@ -382,6 +389,9 @@ async function main() {
       body: JSON.parse(String(init?.body || "{}")),
     };
     captured.push(request);
+    if (request.url.includes("opencode.ai/zen/")) {
+      return request.url.includes("/responses") ? responsesKeepOk() : chatResponse();
+    }
     if (
       request.url.includes("manual.invalid") ||
       request.url.includes("anthropic.invalid") ||
@@ -518,6 +528,39 @@ async function main() {
   };
 
   try {
+    // Exercise the real free-tier guard for all inbound owners, including
+    // native Responses kept wire and Chat passthrough. Transport is mocked.
+    {
+      let schema: any = { type: "string" };
+      for (let i = 0; i < 9; i++) {
+        schema = { type: "object", properties: { child: schema }, required: ["child"], additionalProperties: false };
+      }
+      const containerDepth = (value: any): number => !value || typeof value !== "object"
+        ? 0 : 1 + Math.max(0, ...Object.values(value).map(containerDepth));
+      const incoming: Record<string, any> = {
+        "/v1/messages": { max_tokens: 32, messages: [{ role: "user", content: "hello" }], tools: [{ name: "Deep", input_schema: schema, strict: false }] },
+        "/v1/chat/completions": { messages: [{ role: "user", content: "hello" }], tools: [{ type: "function", function: { name: "Deep", parameters: schema, strict: false } }] },
+        "/v1/responses": { input: "hello", tools: [{ type: "function", name: "Deep", parameters: schema, strict: false }] },
+      };
+      for (const provider of ["zen-free-chat", "zen-free-responses"]) {
+        for (const [url, input] of Object.entries(incoming)) {
+          const payload = { ...structuredClone(input), model: `${provider},matrix-free`, stream: false };
+          const snapshot = structuredClone(payload);
+          const before = captured.length;
+          const result = await app.inject({ method: "POST", url, payload });
+          assert.equal(result.statusCode, 200, `${url} → ${provider}: ${result.body}`);
+          assert.equal(captured.length, before + 1, "no fallback masks a schema failure");
+          const emitted = captured.at(-1)!.body;
+          assert.equal(emitted.stream, true);
+          for (const tool of emitted.tools) {
+            assert.ok(containerDepth((tool.function ?? tool).parameters) <= 10, `${url} → ${provider}: all schemas bounded`);
+          }
+          const deep = emitted.tools.find((tool: any) => (tool.function?.name ?? tool.name) === "Deep");
+          assert.equal((deep.function ?? deep).strict, false);
+          assert.deepEqual(payload, snapshot, "caller unchanged");
+        }
+      }
+    }
     // No latent Gemini/legacy route is exposed by endpoint transformer metadata.
     {
       const result = await app.inject({

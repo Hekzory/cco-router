@@ -233,6 +233,38 @@ middleware may adapt it to the destination's native affinity contract. Verify
 actual provider cache reads with `usage.prompt_tokens_details.cached_tokens`;
 a stable key or intact prefix alone does not prove a cache hit.
 
+### Tool schema limits and strict mode
+
+Tool schemas can exceed an upstream limit from any of the three chat inbound
+APIs: changing the inbound protocol does not reduce schema depth. Responses,
+Chat, and Anthropic conversions preserve explicitly supplied function-tool
+`strict: true` / `strict: false`; an omitted setting stays omitted. Custom
+functions named `Edit` or `WebSearch` retain their caller-defined schemas.
+Hosted `web_search` remains a separate provider adaptation.
+
+Limits depend on the destination:
+
+| Destination | Relevant contract |
+| --- | --- |
+| OpenCode Zen free models with `opencode-headers` | CCR conservatively bounds tool schemas to ten JSON object/array containers after conversion and gate-stub injection, on both Chat and Responses egress. The middleware also runs on same-protocol kept wire. Scope: `-free` models at `opencode.ai/zen/`; other destinations retain their schemas. |
+| OpenAI strict function tools | [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs) documents ten nesting levels and a supported schema subset. This is not a universal JSON-container bound for all Chat-compatible providers. |
+| OpenAI Responses | When `strict` is omitted, [Responses attempts strict normalization](https://developers.openai.com/api/docs/guides/function-calling) when possible and otherwise falls back to non-strict mode. Explicit `strict: false` opts out; Chat defaults to non-strict mode. |
+| Anthropic strict tools | [Strict schemas](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) have combined grammar-complexity limits; these differ from the Zen depth bound. |
+| Gemini / Vertex Gemini / Antigravity Gemini wire | Dialect conversion does not cap nesting. [Google warns](https://ai.google.dev/gemini-api/docs/function-calling) that large or deeply nested function schemas can be rejected in `ANY` mode. |
+| xAI | [Structured Outputs](https://docs.x.ai/developers/model-capabilities/text/structured-outputs) uses strict tools and a supported schema subset. CCR does not impose Zen's numeric bound here. |
+
+The Zen bound removes deep constraints, so the model receives a broader schema
+than the client supplied. Client tools must still validate arguments against
+their original schemas. Debug records named `opencode_tool_schema_depth` show
+the affected tool names and before/after container depths. Legacy explicit
+transformer bypass skips middleware, including this bound.
+
+`cross-protocol.matrix.ts` checks emitted schemas and explicit strict settings
+across provider representations; `inbound-protocol-routes.ts` checks all three
+inbound protocols against both Zen egress formats with mocked transport.
+These regressions verify transformation behavior, not live acceptance by every
+provider or model.
+
 ### anthropic (config examples)
 
 Some docs/examples still show a top-level `transformers` entry named

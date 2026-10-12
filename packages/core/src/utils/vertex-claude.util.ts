@@ -39,6 +39,7 @@ interface ClaudeMessage {
 interface ClaudeTool {
   name: string;
   description: string;
+  strict?: boolean;
   input_schema: {
     type: string;
     properties: Record<string, any>;
@@ -216,10 +217,14 @@ export function buildRequestBody(
   if (request.tools && request.tools.length > 0) {
     requestBody.tools = request.tools.map((tool: UnifiedTool) => {
       const normalized = normalizeTool(tool);
+      const strict = tool.function?.strict ?? (tool as any).strict;
       return {
         name: normalized.name,
         description: normalized.description,
         input_schema: normalized.parameters,
+        ...(typeof strict === "boolean"
+          ? { strict }
+          : {}),
         ...(tool.cache_control ? { cache_control: tool.cache_control } : {}),
       };
     });
@@ -289,13 +294,8 @@ export function transformRequestOut(
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: {
-          type: "object" as const,
-          properties: tool.input_schema.properties,
-          required: tool.input_schema.required,
-          additionalProperties: tool.input_schema.additionalProperties,
-          $schema: tool.input_schema.$schema,
-        },
+        parameters: tool.input_schema as UnifiedTool["function"]["parameters"],
+        ...(typeof tool.strict === "boolean" ? { strict: tool.strict } : {}),
       },
     }));
   }

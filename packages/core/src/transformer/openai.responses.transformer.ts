@@ -733,33 +733,14 @@ export class OpenAIResponsesTransformer implements Transformer {
       (request as any).tools = request.tools
         .filter((tool: any) => !isWebSearch(tool))
         .map((tool: any) => {
-          if (tool.function.name === "WebSearch") {
-            if (tool.function.parameters?.properties) {
-              delete tool.function.parameters.properties.allowed_domains;
-            }
-          }
-          if (tool.function.name === "Edit") {
-            return {
-              type: tool.type,
-              name: tool.function.name,
-              description: tool.function.description,
-              parameters: {
-                ...tool.function.parameters,
-                required: [
-                  "file_path",
-                  "old_string",
-                  "new_string",
-                  "replace_all",
-                ],
-              },
-              strict: true,
-            };
-          }
           return {
             type: tool.type,
             name: tool.function.name,
             description: tool.function.description,
             parameters: tool.function.parameters,
+            ...(typeof tool.function.strict === "boolean"
+              ? { strict: tool.function.strict }
+              : {}),
           };
         });
 

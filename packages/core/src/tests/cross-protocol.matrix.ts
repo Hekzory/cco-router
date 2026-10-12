@@ -215,11 +215,98 @@ async function testCallIdBoundsAcrossOutbounds() {
 }
 
 async function main() {
+  await testToolSchemaMatrix();
   await testAnthropicToAllOutbounds();
   await testChatToAllOutbounds();
   await testResponsesToAllOutbounds();
   await testCallIdBoundsAcrossOutbounds();
   console.log("cross-protocol.matrix: PASS");
+}
+
+async function testToolSchemaMatrix() {
+  let deep: any = { type: "string" };
+  for (let i = 0; i < 9; i++) {
+    deep = { type: "object", properties: { child: deep }, required: ["child"], additionalProperties: false };
+  }
+  const definitions = [
+    { name: "Deep", parameters: deep, strict: false },
+    { name: "Strict", parameters: { type: "object", properties: { value: { type: "string" } }, required: ["value"], additionalProperties: false }, strict: true },
+    { name: "Edit", parameters: { type: "object", properties: { replacement: { type: "string" } }, required: ["replacement"] }, strict: false },
+    { name: "WebSearch", parameters: { type: "object", properties: { allowed_domains: { type: "array", items: { type: "string" } } } }, strict: false },
+    { name: "Default", parameters: { type: "object", properties: {} } },
+  ].map((tool) => ({ description: "Synthetic tool", ...tool }));
+  const inboundBodies: Record<string, any> = {
+    messages: { model: "model", max_tokens: 64, messages: [{ role: "user", content: "hello" }], tools: definitions.map(({ parameters, ...tool }) => ({ ...tool, input_schema: parameters })) },
+    chat: { model: "model", messages: [{ role: "user", content: "hello" }], tools: definitions.map((tool) => ({ type: "function", function: tool })) },
+    responses: { model: "model", input: "hello", tools: definitions.map((tool) => ({ type: "function", ...tool })) },
+  };
+  const owners: Record<string, any> = {
+    messages: new AnthropicTransformer(),
+    chat: new OpenAITransformer(),
+    responses: new OpenAIResponsesTransformer(),
+  };
+  const { buildRequestBody: buildMistral } = await import("../utils/mistral.util");
+  const { buildRequestBody: buildVertexClaude, transformRequestOut: fromVertexClaude } = await import("../utils/vertex-claude.util");
+  const { GroqTransformer } = await import("../transformer/groq.transformer");
+  for (const [inbound, body] of Object.entries(inboundBodies)) {
+    const snapshot = structuredClone(body);
+    const unified = await owners[inbound].transformRequestOut(structuredClone(body), sessionCtx());
+    assert.deepEqual(unified.tools.map((tool: any) => tool.function), definitions, `${inbound}: inbound schema/strict fidelity`);
+    const responses = await new OpenAIResponsesTransformer().transformRequestIn(structuredClone(unified), {} as any, sessionCtx()) as any;
+    const codex = new CodexTransformer();
+    (codex as any).resolveAuth = async () => ({ mode: "oauth", token: "synthetic", accountId: "synthetic", isFedramp: false });
+    const codexProvider = { name: "codex", baseUrl: "https://chatgpt.com/backend-api/codex", apiKey: "at-test" } as any;
+    const codexResult = await codex.transformRequestIn({ ...structuredClone(responses), model: "matrix-standard" }, codexProvider, sessionCtx());
+    const liteResult = await codex.transformRequestIn({ ...structuredClone(responses), model: "gpt-5.6-sol" }, codexProvider, sessionCtx());
+    const liteTools = liteResult.body.input.find((item: any) => item.type === "additional_tools").tools.flatMap((tool: any) => tool.tools ?? [tool]);
+    const outbounds: Record<string, any> = {
+      chat: await new OpenAITransformer().transformRequestIn(structuredClone(unified), {} as any, sessionCtx()),
+      responses,
+      codex: codexResult.body,
+      codexLite: { tools: liteTools },
+      anthropic: (await new AnthropicTransformer().transformRequestIn(structuredClone(unified), {} as any, sessionCtx()) as any).body,
+      vertexClaude: buildVertexClaude(structuredClone(unified)),
+      groq: await new GroqTransformer().transformRequestIn(structuredClone(unified)),
+      mistral: buildMistral(structuredClone(unified), sessionCtx(), {} as any),
+    };
+    for (const [outbound, emitted] of Object.entries(outbounds)) {
+      assert.ok(emitted?.tools, `${inbound} → ${outbound}: tools emitted; keys=${Object.keys(emitted ?? {})}`);
+      for (const expected of definitions) {
+        const wireTool = emitted.tools.find((tool: any) => (tool.function?.name ?? tool.name) === expected.name);
+        const tool = wireTool.function ?? wireTool;
+        assert.deepEqual(tool.parameters ?? tool.input_schema, expected.parameters, `${inbound} → ${outbound}: ${expected.name} schema`);
+        assert.equal(tool.strict, (expected as any).strict, `${inbound} → ${outbound}: ${expected.name} strict`);
+        assert.equal(Object.hasOwn(tool, "strict"), Object.hasOwn(expected, "strict"), `${inbound} → ${outbound}: omitted strict stays omitted`);
+      }
+    }
+    for (const model of ["gemini-test", "claude-test"]) {
+      const gemini = buildGeminiBody({ ...structuredClone(unified), model }, { name: "antigravity" } as any);
+      const tools = gemini.tools.flatMap((tool: any) => tool.functionDeclarations ?? []);
+      let schema = tools.find((tool: any) => tool.name === "Deep").parameters;
+      for (let i = 0; i < 9; i++) {
+        assert.equal(schema.type.toLowerCase(), "object", `${inbound} → ${model}: nested object ${i} preserved`);
+        schema = schema.properties.child;
+      }
+      assert.equal(schema.type.toLowerCase(), "string", `${inbound} → ${model}: deep leaf preserved`);
+    }
+    assert.deepEqual(body, snapshot, `${inbound}: caller unchanged`);
+  }
+  const referenceSchema = {
+    type: "object", properties: { value: { $ref: "#/$defs/value" } },
+    $defs: { value: { type: "string" } }, allOf: [{ required: ["value"] }],
+  };
+  const roundTrip = fromVertexClaude(buildVertexClaude({
+    model: "claude-test", messages: [{ role: "user", content: "hello" }],
+    tools: [{ type: "function", function: { name: "References", description: "Synthetic tool", parameters: referenceSchema, strict: false } }],
+  } as any));
+  assert.deepEqual(roundTrip.tools![0].function.parameters, referenceSchema, "Vertex Claude round trip retains root schema keywords");
+  assert.equal(roundTrip.tools![0].function.strict, false);
+  const nativeTool = buildVertexClaude({
+    model: "claude-test", messages: [{ role: "user", content: "hello" }],
+    tools: [{ name: "References", description: "Synthetic tool", input_schema: referenceSchema, strict: false }],
+  } as any).tools![0];
+  assert.deepEqual(nativeTool.input_schema, referenceSchema, "Vertex Claude still accepts normalized native tools");
+  assert.equal(nativeTool.strict, false);
 }
 
 main().catch((error) => {

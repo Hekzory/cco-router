@@ -867,6 +867,9 @@ export class AnthropicTransformer implements Transformer {
           name: tool.function.name,
           description: tool.function.description || "",
           input_schema: tool.function.parameters,
+          ...(typeof tool.function.strict === "boolean"
+            ? { strict: tool.function.strict }
+            : {}),
           ...cacheControl,
         };
       });
@@ -1004,6 +1007,7 @@ export class AnthropicTransformer implements Transformer {
         name: tool.name,
         description: tool.description || "",
         parameters: tool.input_schema,
+        ...(typeof tool.strict === "boolean" ? { strict: tool.strict } : {}),
       },
       ...(tool.cache_control ? { cache_control: tool.cache_control } : {}),
     }));

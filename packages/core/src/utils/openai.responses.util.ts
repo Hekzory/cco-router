@@ -1856,6 +1856,9 @@ function normalizeResponsesTools(
           t.schema ||
           t.function?.parameters ||
           { type: "object", properties: {} },
+        ...(typeof (t.strict ?? t.function?.strict) === "boolean"
+          ? { strict: t.strict ?? t.function.strict }
+          : {}),
       },
     };
   });

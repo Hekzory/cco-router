@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { OpencodeHeadersTransformer } from "../transformer/opencode-headers.transformer";
+import { OpenAITransformer } from "../transformer/openai.transformer";
 import { OpenAIResponsesTransformer } from "../transformer/openai.responses.transformer";
 import { isFallbackEligibleError } from "../utils/retry";
 import { tapUpstreamSSEDebug } from "../utils/sse-debug-tap";
@@ -160,6 +161,210 @@ async function injectsChatShapedStubs() {
   });
   assert.equal(out.tools[3].function.name, "shell");
   assert.deepEqual(ctx.req._opencodeGateAliases, { read: "Read", shell: "Bash" });
+}
+
+function jsonContainerDepth(value: any): number {
+  if (!value || typeof value !== "object") return 0;
+  return 1 + Math.max(0, ...Object.values(value).map(jsonContainerDepth));
+}
+
+async function capsFreeTierToolSchemaDepth() {
+  const sent = installFetch();
+  const ctx = makeContext();
+  let parameters: any = { type: "string" };
+  for (let level = 0; level < 12; level++) {
+    parameters = {
+      type: "object",
+      properties: { [`level${level}`]: parameters },
+      required: [`level${level}`],
+      additionalProperties: false,
+    };
+  }
+  const body = {
+    model: FREE,
+    messages: [{ role: "user", content: "hi" }],
+    stream: false,
+    tools: ["Read", "Bash"].map((name) => ({
+      ...chatClientTool(name),
+      function: { ...chatClientTool(name).function, parameters },
+    })),
+  };
+  const unified = await new OpenAITransformer().transformRequestOut(body, ctx);
+  const responses = await new OpenAIResponsesTransformer().transformRequestIn(
+    unified,
+    zenResponses,
+    ctx
+  );
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    responses,
+    zenResponses,
+    ctx
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(
+    body.tools[0].function.parameters.properties.level11.properties.level10.type,
+    "object"
+  );
+  assert.equal(sent[0].body.tools.length, 4);
+  for (const tool of sent[0].body.tools) {
+    assert.ok(
+      jsonContainerDepth(tool.parameters) <= 10,
+      `${tool.name} schema exceeds the provider depth limit`
+    );
+  }
+  for (const [model, provider] of [
+    ["paid-model", zenResponses],
+    [FREE, { ...zenResponses, baseUrl: "https://example.com/v1/responses" }],
+    [FREE, { ...zenResponses, baseUrl: "https://opencode.ai.example.com/zen/v1/responses" }],
+  ] as const) {
+    const result = await new OpencodeHeadersTransformer().transformRequestIn(
+      { model, input: [], tools: [{ ...responsesClientTool("Deep"), parameters }] },
+      provider,
+      makeContext()
+    );
+    assert.deepEqual(result.body.tools[0].parameters, parameters, "depth bound stays scoped to free-tier Zen");
+  }
+}
+
+async function capsSchemaCombinatorContainers() {
+  const sent = installFetch();
+  const ctx = makeContext();
+  const parameters = {
+    type: "object",
+    properties: {
+      payload: {
+        anyOf: [
+          { type: "string" },
+          {
+            anyOf: [{
+              type: "object",
+              properties: {
+                request: {
+                  type: "string",
+                  minLength: 1,
+                  allOf: [{ pattern: "^[a-z]+$" }, { maxLength: 300 }],
+                },
+              },
+              required: ["request"],
+              additionalProperties: false,
+            }],
+          },
+        ],
+      },
+    },
+    required: ["payload"],
+    additionalProperties: false,
+  };
+  assert.equal(jsonContainerDepth(parameters), 11);
+  const original = structuredClone(parameters);
+  const boundary: any = structuredClone(parameters);
+  boundary.properties.payload.anyOf[1].anyOf[0].properties.request = {
+    type: "string",
+    enum: ["accepted"],
+  };
+  assert.equal(jsonContainerDepth(boundary), 10);
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    {
+      model: FREE,
+      input: [],
+      stream: true,
+      tools: [
+        { ...responsesClientTool("dispatch"), parameters },
+        { ...responsesClientTool("boundary"), parameters: boundary },
+      ],
+    },
+    zenResponses,
+    ctx
+  );
+  assert.deepEqual(parameters, original);
+  const out = sent[0].body.tools[0].parameters;
+  assert.ok(jsonContainerDepth(out) <= 10);
+  assert.deepEqual(out.properties.payload.anyOf[1].anyOf[0].properties.request, {
+    type: "string",
+    minLength: 1,
+  });
+  assert.equal(out.properties.payload.anyOf[1].anyOf[0].additionalProperties, false);
+  assert.deepEqual(sent[0].body.tools[1].parameters, boundary);
+}
+
+async function depthRelaxationCannotNarrowCombinators() {
+  const sent = installFetch();
+  let nested: any = { type: "string" };
+  for (let index = 0; index < 6; index++) {
+    nested = {
+      type: "object",
+      properties: { child: nested },
+      required: ["child"],
+      additionalProperties: false,
+    };
+  }
+  const tools = [
+    { type: "object", oneOf: [nested, { type: "object" }], unevaluatedProperties: false },
+    { type: "object", not: nested },
+    { type: "object", if: nested, then: { required: ["yes"] }, else: { required: ["no"] } },
+    { type: "array", contains: nested, minContains: 1, maxContains: 1 },
+  ].map((parameters, index) => ({
+    ...responsesClientTool(`conditional_${index}`),
+    parameters,
+  }));
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    { model: FREE, input: [], stream: true, tools },
+    zenResponses,
+    makeContext()
+  );
+  for (const tool of sent[0].body.tools.slice(0, 3)) {
+    assert.deepEqual(tool.parameters, { type: "object" });
+  }
+  assert.deepEqual(sent[0].body.tools[3].parameters, { type: "array" });
+
+  let tuple: any = {
+    type: "array",
+    prefixItems: [{ type: "string" }],
+    items: false,
+  };
+  for (let index = 0; index < 9; index++) tuple = { type: "array", items: tuple };
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    {
+      model: FREE, input: [], stream: true,
+      tools: [{ ...responsesClientTool("tuple"), parameters: tuple }],
+    },
+    zenResponses,
+    makeContext()
+  );
+  let bounded = sent[1].body.tools[0].parameters;
+  assert.equal(jsonContainerDepth(bounded), 10);
+  for (let index = 0; index < 9; index++) bounded = bounded.items;
+  assert.deepEqual(bounded, { type: "array" });
+}
+
+async function depthRelaxationDoesNotLeaveDanglingRefs() {
+  const sent = installFetch();
+  let nested: any = { type: "string" };
+  for (let i = 0; i < 6; i++) nested = { properties: { child: nested } };
+  const ref = "#/$defs/node" + "/properties/child".repeat(6);
+  const parameters = {
+    type: "object",
+    $defs: { node: nested },
+    properties: {
+      value: { $ref: ref },
+      negated: { not: { $ref: ref } },
+      exclusive: { oneOf: [{ $ref: ref }, { type: "string" }] },
+      valid: { $ref: "#/$defs/node" },
+      literal: { default: { $ref: ref } },
+    },
+  };
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    { model: FREE, input: [], stream: true, tools: [{ ...responsesClientTool("references"), parameters }] },
+    zenResponses,
+    makeContext()
+  );
+  const bounded = sent[0].body.tools[0].parameters;
+  assert.deepEqual(bounded.properties.value, {});
+  assert.deepEqual(bounded.properties.negated, {});
+  assert.deepEqual(bounded.properties.exclusive, {});
+  assert.deepEqual(bounded.properties.valid, { $ref: "#/$defs/node" });
+  assert.deepEqual(bounded.properties.literal, parameters.properties.literal);
+  assert.ok(jsonContainerDepth(bounded) <= 10);
 }
 
 async function aliasesCursorMockReadFile() {
@@ -1204,6 +1409,10 @@ async function main() {
   try {
     await injectsResponsesStubsWithClonedSchemas();
     await injectsChatShapedStubs();
+    await capsFreeTierToolSchemaDepth();
+    await capsSchemaCombinatorContainers();
+    await depthRelaxationCannotNarrowCombinators();
+    await depthRelaxationDoesNotLeaveDanglingRefs();
     await aliasesCursorMockReadFile();
     await aliasesDevinMockExec();
     await mockToolsSurviveResponsesPipeline();
