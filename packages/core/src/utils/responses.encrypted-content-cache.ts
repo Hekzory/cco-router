@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { LLMProvider, UnifiedChatRequest, UnifiedMessage } from "@/types/llm";
 import { TransformerContext } from "@/types/transformer";
 import { responsesEncryptedContentFrom } from "./openai.responses.util";
@@ -35,6 +35,10 @@ const STREAM_MAX_ITEMS = 256;
 const STREAM_MAX_BYTES = 1024 * 1024;
 const CONTEXT_KEY = "__ccrResponsesEncryptedReasoning";
 const ENCRYPTED_INCLUDE = "reasoning.encrypted_content";
+// The cache is process-local, so credential fingerprints only need to agree
+// within this process. Keying them with a per-process secret means a leaked
+// namespace cannot be used to confirm a guessed (possibly weak) API key offline.
+const CREDENTIAL_FINGERPRINT_SECRET = randomBytes(32);
 
 type RecordedStreamItem = {
   type: "reasoning" | "function_call" | "custom_tool_call" | "message";
@@ -370,6 +374,13 @@ function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function credentialFingerprint(apiKey: string): string {
+  // The credential is the HMAC key, never hashed input.
+  return createHmac("sha256", apiKey)
+    .update(CREDENTIAL_FINGERPRINT_SECRET)
+    .digest("hex");
+}
+
 function normalizeContent(content: MessageLike["content"]): string {
   if (typeof content === "string") return content;
   if (content == null) return "";
@@ -603,7 +614,7 @@ export function buildEncryptedReasoningCacheNamespace(
     stableStringify({
       provider: provider?.name || "",
       baseUrl: provider?.baseUrl || "",
-      credential: provider?.apiKey ? hash(provider.apiKey) : null,
+      credential: provider?.apiKey ? credentialFingerprint(provider.apiKey) : null,
       model: request.model || "",
       thinking: request.thinking || null,
       reasoning: request.reasoning || null,
