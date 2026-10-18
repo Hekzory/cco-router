@@ -1,4 +1,5 @@
 import { randomBytes, createHash } from "crypto";
+import { isDeepStrictEqual } from "node:util";
 import { Transformer } from "@/types/transformer";
 import { sendUnifiedRequest } from "@/utils/request";
 import { createApiError } from "@/api/middleware";
@@ -25,8 +26,8 @@ import {
 } from "@/session-registry";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const OPENCODE_VERSION = "1.18.32";
-const OPENCODE_USER_AGENT = `opencode/${OPENCODE_VERSION}`;
+const OPENCODE_VERSION = "1.19.3";
+const OPENCODE_USER_AGENT = `opencode/${OPENCODE_VERSION} ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14`;
 const OPENCODE_MAX_TOOL_SCHEMA_DEPTH = 10;
 
 const JSON_SCHEMA_CHILD_KEYS = new Set([
@@ -64,7 +65,12 @@ function jsonContainerDepth(value: any): number {
 }
 
 /** Bound tool schema JSON containers for OpenCode free-tier provider requests. */
-function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<string>): any {
+function limitToolSchemaDepth(
+  schema: any,
+  depth = 1,
+  lostRefs?: ReadonlySet<string>,
+  relaxedRefs?: ReadonlySet<string>
+): any {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     return schema;
   }
@@ -72,8 +78,10 @@ function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<str
   let changed = false;
   let changedConditional = false;
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "$ref" && lostRefs?.has(value as string)) {
-      delete limited[key];
+    if (key === "$ref" && (lostRefs?.has(value as string) || relaxedRefs?.has(value as string))) {
+      if (lostRefs?.has(value as string)) delete limited[key];
+      // A surviving reference to a relaxed target also changes validation.
+      // Notify enclosing not/oneOf/if/contains and unevaluated constraints.
       changed = true;
       continue;
     }
@@ -104,7 +112,7 @@ function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<str
         const entries = Object.entries(value).map(([name, child]) => {
           const next = Array.isArray(child)
             ? child
-            : limitToolSchemaDepth(child, depth + 2, lostRefs);
+            : limitToolSchemaDepth(child, depth + 2, lostRefs, relaxedRefs);
           if (next !== child) changed = true;
           return [name, next] as const;
         });
@@ -122,7 +130,7 @@ function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<str
         delete limited[key];
         changed = true;
       } else {
-        const next = value.map((child) => limitToolSchemaDepth(child, depth + 2, lostRefs));
+        const next = value.map((child) => limitToolSchemaDepth(child, depth + 2, lostRefs, relaxedRefs));
         if (next.some((child, index) => child !== value[index])) {
           // Relaxing oneOf branches can make a valid value match multiple
           // branches. Drop the exclusivity constraint instead of narrowing it.
@@ -135,7 +143,7 @@ function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<str
       if (!value || typeof value !== "object") continue;
       const next = depth + 1 > OPENCODE_MAX_TOOL_SCHEMA_DEPTH
         ? undefined
-        : limitToolSchemaDepth(value, depth + 1, lostRefs);
+        : limitToolSchemaDepth(value, depth + 1, lostRefs, relaxedRefs);
       if (next !== value) {
         // Broadening a negated schema narrows its complement. Relax the
         // enclosing constraint, including coupled conditional branches.
@@ -173,26 +181,28 @@ function limitToolSchemaDepth(schema: any, depth = 1, lostRefs?: ReadonlySet<str
   return changed ? limited : schema;
 }
 
-/** Local JSON pointers can target constraints removed by the depth bound. */
-function resolvesLocalPointer(schema: any, ref: string): boolean {
-  if (ref === "#") return true;
-  if (!ref.startsWith("#/")) return false;
+/** Resolve a local JSON pointer, distinguishing missing targets from false schemas. */
+function resolveLocalPointer(schema: any, ref: string): { value: any } | undefined {
+  if (ref === "#") return { value: schema };
+  if (!ref.startsWith("#/")) return undefined;
   try {
     const segments = decodeURIComponent(ref.slice(2)).split("/");
     for (const segment of segments) {
       const key = segment.replace(/~1/g, "/").replace(/~0/g, "~");
-      if (!schema || typeof schema !== "object" || !Object.hasOwn(schema, key)) return false;
+      if (!schema || typeof schema !== "object" || !Object.hasOwn(schema, key)) return undefined;
       schema = schema[key];
     }
-    return true;
+    return { value: schema };
   } catch {
-    return false;
+    return undefined;
   }
 }
 
 function localSchemaRefs(schema: any, refs = new Set<string>()): Set<string> {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) return refs;
-  if (typeof schema.$ref === "string" && schema.$ref.startsWith("#/")) refs.add(schema.$ref);
+  if (typeof schema.$ref === "string" && (schema.$ref === "#" || schema.$ref.startsWith("#/"))) {
+    refs.add(schema.$ref);
+  }
   for (const key of JSON_SCHEMA_CHILD_KEYS) {
     const value = schema[key];
     if (["properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"].includes(key)) {
@@ -207,15 +217,39 @@ function localSchemaRefs(schema: any, refs = new Set<string>()): Set<string> {
 function boundToolSchema(schema: any): any {
   let bounded = limitToolSchemaDepth(schema);
   if (bounded === schema) return schema;
-  // Reuse the relaxation rules so dropping a lost reference under not/oneOf
-  // cannot narrow validation. Repeat because dropping a branch can remove
-  // another reference target. Pre-existing unresolved refs are left untouched.
+  // Reuse the relaxation rules for lost and changed reference targets.
+  // Repeat because relaxing a constraint can change another reference target.
+  // Pre-existing unresolved refs are left untouched.
   while (true) {
-    const lost = new Set([...localSchemaRefs(bounded)].filter(
-      (ref) => resolvesLocalPointer(schema, ref) && !resolvesLocalPointer(bounded, ref)
-    ));
-    if (!lost.size) return bounded;
-    bounded = limitToolSchemaDepth(bounded, 1, lost);
+    const lost = new Set<string>();
+    const relaxed = new Set<string>();
+    const targets = new Map<string, any>();
+    for (const ref of localSchemaRefs(bounded)) {
+      const original = resolveLocalPointer(schema, ref);
+      if (!original) continue;
+      const current = resolveLocalPointer(bounded, ref);
+      if (!current) lost.add(ref);
+      else {
+        targets.set(ref, current.value);
+        if (!isDeepStrictEqual(original.value, current.value)) relaxed.add(ref);
+      }
+    }
+    // An unchanged alias can still refer transitively to a changed target.
+    let propagated = true;
+    while (propagated) {
+      propagated = false;
+      for (const [ref, target] of targets) {
+        if (relaxed.has(ref)) continue;
+        if ([...localSchemaRefs(target)].some((child) => lost.has(child) || relaxed.has(child))) {
+          relaxed.add(ref);
+          propagated = true;
+        }
+      }
+    }
+    if (!lost.size && !relaxed.size) return bounded;
+    const next = limitToolSchemaDepth(bounded, 1, lost, relaxed);
+    if (isDeepStrictEqual(next, bounded)) return next;
+    bounded = next;
   }
 }
 
@@ -1061,11 +1095,18 @@ export class OpencodeHeadersTransformer implements Transformer {
     // to deriving here only for direct callers.
     const session = sessionId ?? this.getOrCreateSessionId(conversationId);
     const parentSessionId = this.resolveParentSessionId(context);
+    // Override credentials case-insensitively, including clearing stale
+    // credentials when this provider has no key.
+    const headers = Object.fromEntries(
+      Object.entries(baseConfig?.headers || {}).map(([name, value]) => [name.toLowerCase(), value])
+    );
     return {
-      ...baseConfig?.headers,
+      ...headers,
       "x-api-key": provider.apiKey || "",
+      "authorization": provider.apiKey ? `Bearer ${provider.apiKey}` : undefined,
       "x-opencode-project": "global",
       "x-opencode-session": session,
+      "x-opencode-session-id": session,
       "x-opencode-request": requestId,
       "x-opencode-client": "cli",
       // `x-zen-model` is intentionally NOT sent. Research (2026-08-25, verified
@@ -1080,7 +1121,6 @@ export class OpencodeHeadersTransformer implements Transformer {
       // if Zen ever documents honoring an inbound x-zen-model.
       ...(parentSessionId ? { "x-parent-session-id": parentSessionId } : {}),
       "user-agent": OPENCODE_USER_AGENT,
-      authorization: undefined,
     };
   }
 
@@ -1102,9 +1142,9 @@ export class OpencodeHeadersTransformer implements Transformer {
   }
 
   /**
-   * True only for the two Zen session-hash routing failures — retried on the
-   * SAME session (which must not change during a conversation), then passed
-   * to fallback. Kept deliberately narrow (exact status + message) so genuine
+   * True only for the two Zen session-hash routing failures — retried with a
+   * new session to leave the broken bucket, then passed to fallback when
+   * exhausted. Kept deliberately narrow (exact status + message) so genuine
    * auth errors (401 invalid key) and request errors (400 validation) are never
    * mistaken for routing failures and pass straight through.
    */
@@ -1232,7 +1272,9 @@ export class OpencodeHeadersTransformer implements Transformer {
     const base = provider?.baseUrl || provider?.api_base_url || "";
     try {
       const url = new URL(String(base));
-      return url.hostname === "opencode.ai" && url.pathname.startsWith("/zen/");
+      return url.hostname === "opencode.ai" &&
+        (url.pathname.startsWith("/zen/") ||
+          url.pathname.startsWith("/inference/"));
     } catch {
       return false;
     }
@@ -1587,6 +1629,7 @@ export class OpencodeHeadersTransformer implements Transformer {
       if (
         value.type === "function_call" &&
         typeof value.name === "string" &&
+        Object.hasOwn(aliases, value.name) &&
         aliases[value.name]
       ) {
         value.name = aliases[value.name];
@@ -1596,7 +1639,7 @@ export class OpencodeHeadersTransformer implements Transformer {
       if (Array.isArray(toolCalls)) {
         for (const call of toolCalls) {
           const name = call?.function?.name;
-          if (typeof name === "string" && aliases[name]) {
+          if (typeof name === "string" && Object.hasOwn(aliases, name) && aliases[name]) {
             call.function.name = aliases[name];
             changed = true;
           }

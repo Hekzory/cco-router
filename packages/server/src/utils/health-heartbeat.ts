@@ -1,6 +1,6 @@
 import { rename, writeFile } from "node:fs/promises";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
-import { monitorEventLoopDelay, type IntervalHistogram } from "node:perf_hooks";
+import { monitorEventLoopDelay, type ELDHistogram } from "node:perf_hooks";
 
 /**
  * Periodic health report.
@@ -196,7 +196,7 @@ export class HealthHeartbeat {
 
   private pendingPersist: Promise<void> = Promise.resolve();
 
-  private loopDelay: IntervalHistogram | undefined;
+  private loopDelay: ELDHistogram | undefined;
   private timer: NodeJS.Timeout | undefined;
 
   constructor(options: HealthHeartbeatOptions = {}) {

@@ -14,6 +14,8 @@ services:
       - "51121:3456"
     volumes:
       - ./ccr-config:/root/.claude-code-router
+    networks:
+      - ccrnet
     restart: always
     environment:
       - NODE_ENV=production
@@ -29,6 +31,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - ALIBABA_API_KEY=${ALIBABA_API_KEY}
       - CURSOR_API_KEY=${CURSOR_API_KEY}
+      - NODE_OPTIONS=--dns-result-order=ipv6first
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3456/health"]
       interval: 30s
@@ -40,3 +43,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  ccrnet:
+    enable_ipv6: true

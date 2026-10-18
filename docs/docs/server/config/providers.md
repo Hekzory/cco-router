@@ -249,6 +249,8 @@ Requires the bridge process via `ccr chrome-bridge`.
 `opencode-headers` presents requests as the OpenCode CLI (session, request and
 project headers) and owns the upstream call to Zen. Keep it provider-wide,
 after the protocol owner.
+When a provider API key is configured, CCR sends it in both `x-api-key`
+and `Authorization: Bearer …`; without a key, both headers are omitted.
 
 ```json
 {
@@ -272,9 +274,9 @@ Zen's deterministic bad-bucket errors (`401 No provider available`,
 bad-bucket errors surface as `503`, so CCR's normal fallback can try another
 model.
 
-**Free-tier models** (model id ending in `-free` on an `opencode.ai/zen/`
-endpoint) pass Zen's free-tier check only when requests look like the OpenCode
-client. For those models CCR:
+**Free-tier models** (model id ending in `-free` on an `opencode.ai/zen/` or
+`opencode.ai/inference/` endpoint) pass Zen's free-tier check only when
+requests look like the OpenCode client. For those models CCR:
 
 - always streams upstream. A non-streaming client still receives a JSON
   response, collected from the stream.
@@ -293,7 +295,22 @@ client. For those models CCR:
   may stay silent for up to 5 minutes. After output starts, 60 s without data
   (5 minutes inside reasoning) ends the stream with an error.
 
-Paid Zen models are sent unchanged.
+**Free-tier egress caveat (observed 2026-10-17).** On the tested network,
+an identical request (same host, body, headers and session) returned
+`403 FreeTierError` over IPv4 while succeeding over IPv6, including when
+using the official client's TLS stack. For containers on that network,
+working IPv6 egress and IPv6-first DNS resolution
+(e.g. `NODE_OPTIONS=--dns-result-order=ipv6first`) were a workaround.
+This does not establish IPv6 as a general free-tier requirement or fix:
+upstream reports
+[#56334](https://github.com/anomalyco/opencode/issues/56334)
+and [#56373](https://github.com/anomalyco/opencode/issues/56373) record
+failures over both IPv4 and IPv6. The exact server-side eligibility rule
+has not been established. See also
+[#56324](https://github.com/anomalyco/opencode/issues/56324), and verify
+the workaround on the deployment's own network.
+
+Paid Zen models skip the free-tier adaptations above.
 
 ## Model Selection
 

@@ -246,7 +246,7 @@ Limits depend on the destination:
 
 | Destination | Relevant contract |
 | --- | --- |
-| OpenCode Zen free models with `opencode-headers` | CCR conservatively bounds tool schemas to ten JSON object/array containers after conversion and gate-stub injection, on both Chat and Responses egress. The middleware also runs on same-protocol kept wire. Scope: `-free` models at `opencode.ai/zen/`; other destinations retain their schemas. |
+| OpenCode Zen free models with `opencode-headers` | CCR conservatively bounds tool schemas to ten JSON object/array containers after conversion and gate-stub injection, on both Chat and Responses egress. The middleware also runs on same-protocol kept wire. Scope: `-free` models at `opencode.ai/zen/` or `opencode.ai/inference/`; other destinations retain their schemas. |
 | OpenAI strict function tools | [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs) documents ten nesting levels and a supported schema subset. This is not a universal JSON-container bound for all Chat-compatible providers. |
 | OpenAI Responses | When `strict` is omitted, [Responses attempts strict normalization](https://developers.openai.com/api/docs/guides/function-calling) when possible and otherwise falls back to non-strict mode. Explicit `strict: false` opts out; Chat defaults to non-strict mode. |
 | Anthropic strict tools | [Strict schemas](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) have combined grammar-complexity limits; these differ from the Zen depth bound. |
@@ -254,7 +254,9 @@ Limits depend on the destination:
 | xAI | [Structured Outputs](https://docs.x.ai/developers/model-capabilities/text/structured-outputs) uses strict tools and a supported schema subset. CCR does not impose Zen's numeric bound here. |
 
 The Zen bound removes deep constraints, so the model receives a broader schema
-than the client supplied. Client tools must still validate arguments against
+than the client supplied. Local JSON pointers to changed definitions, including
+reference chains, also trigger relaxation of negation, exclusivity, and
+conditional constraints. Client tools must still validate arguments against
 their original schemas. Debug records named `opencode_tool_schema_depth` show
 the affected tool names and before/after container depths. Legacy explicit
 transformer bypass skips middleware, including this bound.

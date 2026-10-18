@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { setTimeout as sleep } from "node:timers/promises";
 import { OpencodeHeadersTransformer } from "../transformer/opencode-headers.transformer";
 import { OpenAITransformer } from "../transformer/openai.transformer";
@@ -7,6 +8,8 @@ import { OpenAIResponsesTransformer } from "../transformer/openai.responses.tran
 import { isFallbackEligibleError } from "../utils/retry";
 import { tapUpstreamSSEDebug } from "../utils/sse-debug-tap";
 import { tapResponseFirstByte } from "../utils/request-latency";
+
+process.exitCode = 1;
 
 type Sent = {
   url: string;
@@ -168,9 +171,7 @@ function jsonContainerDepth(value: any): number {
   return 1 + Math.max(0, ...Object.values(value).map(jsonContainerDepth));
 }
 
-async function capsFreeTierToolSchemaDepth() {
-  const sent = installFetch();
-  const ctx = makeContext();
+function buildDeepToolParameters(): any {
   let parameters: any = { type: "string" };
   for (let level = 0; level < 12; level++) {
     parameters = {
@@ -180,6 +181,13 @@ async function capsFreeTierToolSchemaDepth() {
       additionalProperties: false,
     };
   }
+  return parameters;
+}
+
+async function capsFreeTierToolSchemaDepth() {
+  const sent = installFetch();
+  const ctx = makeContext();
+  const parameters = buildDeepToolParameters();
   const body = {
     model: FREE,
     messages: [{ role: "user", content: "hi" }],
@@ -212,10 +220,48 @@ async function capsFreeTierToolSchemaDepth() {
       `${tool.name} schema exceeds the provider depth limit`
     );
   }
+  const inferenceProvider = {
+    ...zenResponses,
+    baseUrl: "https://opencode.ai/inference/openai/v1/responses",
+  };
+  const inferenceBody = {
+    model: FREE,
+    messages: [{ role: "user", content: "hi" }],
+    stream: false,
+    tools: ["Read", "Bash"].map((name) => ({
+      ...chatClientTool(name),
+      function: { ...chatClientTool(name).function, parameters: buildDeepToolParameters() },
+    })),
+  };
+  sent.length = 0;
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    await new OpenAIResponsesTransformer().transformRequestIn(
+      await new OpenAITransformer().transformRequestOut(inferenceBody, makeContext()),
+      inferenceProvider,
+      makeContext()
+    ),
+    inferenceProvider,
+    makeContext()
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body.tools.length, 4);
+  for (const tool of sent[0].body.tools) {
+    assert.ok(
+      jsonContainerDepth(tool.parameters) <= 10,
+      `${tool.name} schema exceeds the provider depth limit`
+    );
+  }
   for (const [model, provider] of [
     ["paid-model", zenResponses],
     [FREE, { ...zenResponses, baseUrl: "https://example.com/v1/responses" }],
     [FREE, { ...zenResponses, baseUrl: "https://opencode.ai.example.com/zen/v1/responses" }],
+    [
+      FREE,
+      {
+        ...zenResponses,
+        baseUrl: "https://opencode.ai.example.com/inference/openai/v1/responses",
+      },
+    ],
   ] as const) {
     const result = await new OpencodeHeadersTransformer().transformRequestIn(
       { model, input: [], tools: [{ ...responsesClientTool("Deep"), parameters }] },
@@ -365,6 +411,53 @@ async function depthRelaxationDoesNotLeaveDanglingRefs() {
   assert.deepEqual(bounded.properties.valid, { $ref: "#/$defs/node" });
   assert.deepEqual(bounded.properties.literal, parameters.properties.literal);
   assert.ok(jsonContainerDepth(bounded) <= 10);
+}
+
+async function relaxedReferenceTargetsCannotNarrowValidation() {
+  // Exercise JSON Schema semantics with the validator shipped with Fastify.
+  const testRequire = createRequire(import.meta.url);
+  const fastifyRequire = createRequire(testRequire.resolve("fastify"));
+  const compilerRequire = createRequire(fastifyRequire.resolve("@fastify/ajv-compiler"));
+  const Ajv = compilerRequire("ajv");
+  const validator = new Ajv({ strict: true });
+  let nested: any = { type: "string" };
+  for (let index = 0; index < 6; index++) {
+    nested = {
+      type: "object", properties: { child: nested },
+      required: ["child"], additionalProperties: false,
+    };
+  }
+  const reference = { $ref: "#/$defs/node" };
+  const schemas = [reference, { $ref: "#/$defs/alias" }].flatMap((ref) => [
+    { not: ref },
+    { oneOf: [ref, { type: "object" }] },
+    { if: ref, then: false },
+  ].map((constraints) => ({
+    type: "object", $defs: { node: nested, alias: reference }, ...constraints,
+  })));
+  const valid = { child: { child: { child: { child: 1 } } } };
+  for (const provider of [zenResponses, {
+    ...zenResponses, baseUrl: "https://opencode.ai/inference/openai/v1/responses",
+  }]) {
+    const sent = installFetch();
+    await new OpencodeHeadersTransformer().transformRequestIn(
+      {
+        model: FREE, input: [], stream: true,
+        tools: schemas.map((parameters, index) => ({
+          ...responsesClientTool(`referenced_${index}`), parameters,
+        })),
+      },
+      provider,
+      makeContext()
+    );
+    for (let index = 0; index < schemas.length; index++) {
+      const bounded = sent[0].body.tools[index].parameters;
+      assert.equal(validator.compile(schemas[index])(structuredClone(valid)), true);
+      assert.equal(validator.compile(bounded)(structuredClone(valid)), true,
+        "relaxing a referenced definition must not reject previously valid arguments");
+      assert.ok(jsonContainerDepth(bounded) <= 10);
+    }
+  }
 }
 
 async function aliasesCursorMockReadFile() {
@@ -962,6 +1055,43 @@ async function leavesNullAliasesAndForeignToolsAlone() {  const ctx = {
   assert.match(await readStream(out2), /"hello":"read world"/);
 }
 
+async function preservesPrototypeNamedToolsAlongsideGateCalls() {
+  const names = ["constructor", "toString", "__proto__", "valueOf", "hasOwnProperty"];
+  const ctx = { req: { _opencodeGateAliases: { shell: "Bash" } } };
+  const transformer = new OpencodeHeadersTransformer();
+  const events = [
+    {
+      type: "response.completed",
+      response: {
+        output: ["shell", ...names].map((name, index) => ({
+          type: "function_call", id: `fc_${index}`, call_id: `call_${index}`,
+          name, arguments: "{}",
+        })),
+      },
+    },
+    {
+      choices: [{
+        delta: {
+          tool_calls: ["shell", ...names].map((name, index) => ({
+            index, id: `call_${index}`, type: "function",
+            function: { name, arguments: "{}" },
+          })),
+        },
+      }],
+    },
+  ];
+  for (const event of events) {
+    const response = await transformer.transformResponseOut(
+      sseResponse([`data: ${JSON.stringify(event)}`]), ctx
+    );
+    const rewritten = JSON.parse((await response.text()).trim().slice("data: ".length));
+    const actual = rewritten.response
+      ? rewritten.response.output.map((call: any) => call.name)
+      : rewritten.choices[0].delta.tool_calls.map((call: any) => call.function.name);
+    assert.deepEqual(actual, ["Bash", ...names]);
+  }
+}
+
 async function restoresJsonForNonStreamingResponsesClient() {
   const originalFetch = (globalThis as any).fetch;
   const ctx = makeContext();
@@ -1413,6 +1543,7 @@ async function main() {
     await capsSchemaCombinatorContainers();
     await depthRelaxationCannotNarrowCombinators();
     await depthRelaxationDoesNotLeaveDanglingRefs();
+    await relaxedReferenceTargetsCannotNarrowValidation();
     await aliasesCursorMockReadFile();
     await aliasesDevinMockExec();
     await mockToolsSurviveResponsesPipeline();
@@ -1428,6 +1559,7 @@ async function main() {
     await cacheKeyEqualsSessionHeader();
     await sessionAffinitySurvivesToolHistory();
     await leavesNullAliasesAndForeignToolsAlone();
+    await preservesPrototypeNamedToolsAlongsideGateCalls();
     await restoresJsonForNonStreamingResponsesClient();
     await terminalCancelCannotBlockJsonResponse();
     await bufferedTerminalSurvivesDebugAndLatencyTaps();
@@ -1443,7 +1575,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().then(() => { process.exitCode = 0; }).catch((error) => {
   console.error(error);
   process.exit(1);
 });

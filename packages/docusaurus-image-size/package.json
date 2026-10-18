@@ -14,7 +14,7 @@
     "probe-image-size": "^7.4.0"
   },
   "devDependencies": {
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.15"
   },
   "engines": {
     "node": ">=22.19.0"

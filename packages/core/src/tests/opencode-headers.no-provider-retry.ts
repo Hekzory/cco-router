@@ -70,16 +70,56 @@ function okResponse() {
 function assertIdentityHeaders(calls: Captured[]) {
   for (const call of calls) {
     assert.equal(call.headers["x-api-key"], "test-key");
+    assert.equal(call.headers.authorization, "Bearer test-key");
     assert.equal(call.headers["x-opencode-project"], "global");
     assert.equal(call.headers["x-opencode-client"], "cli");
-    assert.equal(call.headers["user-agent"], "opencode/1.18.32");
+    assert.equal(
+      call.headers["user-agent"],
+      "opencode/1.19.3 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14"
+    );
     assert.match(call.headers["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+    assert.equal(call.headers["x-opencode-session-id"], call.headers["x-opencode-session"]);
     assert.match(call.headers["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
     assert.equal(call.headers["x-session-affinity"], undefined);
     assert.equal(call.headers["x-session-id"], undefined);
     assert.equal(call.headers["x-parent-session-id"], undefined);
-    assert.equal(call.headers.authorization, undefined);
   }
+}
+
+async function omitsAuthorizationWithoutProviderKey() {
+  for (const apiKey of ["", undefined]) {
+    for (const headers of [undefined, {
+      Authorization: "Bearer stale-key", authorization: "Bearer stale-key",
+      "X-API-Key": "stale-key", "x-api-key": "stale-key",
+    }]) {
+      const calls = installFetch([okResponse]);
+      await new OpencodeHeadersTransformer().transformRequestIn(
+        { body, config: { headers } }, { ...provider, apiKey }, makeContext()
+      );
+      assert.equal(calls[0].headers.authorization, undefined);
+      assert.equal(calls[0].headers["x-api-key"], undefined);
+    }
+  }
+}
+
+async function overridesIdentityHeadersRegardlessOfCase() {
+  const calls = installFetch([okResponse]);
+  await new OpencodeHeadersTransformer().transformRequestIn(
+    {
+      body,
+      config: {
+        headers: {
+          Authorization: "Bearer stale-key",
+          "X-API-Key": "stale-key",
+          "X-Custom": "preserved",
+        },
+      },
+    },
+    provider,
+    makeContext()
+  );
+  assertIdentityHeaders(calls);
+  assert.equal(calls[0].headers["x-custom"], "preserved");
 }
 
 async function recoverRoutingFailures() {
@@ -462,6 +502,8 @@ async function exhaustedTransientKeepsSessionForNextTurn() {
 async function main() {
   const originalFetch = (globalThis as any).fetch;
   try {
+    await omitsAuthorizationWithoutProviderKey();
+    await overridesIdentityHeadersRegardlessOfCase();
     await recoverRoutingFailures();
     await recoverWrappedRoutingFailure();
     await retryTransientStatusesWithAffinity();
