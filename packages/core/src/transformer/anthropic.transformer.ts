@@ -398,29 +398,44 @@ export class AnthropicTransformer implements Transformer {
             const textAndMediaParts = msg.content.filter(
               (c: any) =>
                 (c.type === "text" && c.text) ||
-                (c.type === "image" && c.source)
+                (c.type === "image" && c.source) ||
+                c.type === "document"
             );
             if (textAndMediaParts.length) {
               messages.push({
                 role: "user",
-                content: textAndMediaParts.map((part: any) => {
-                  if (part?.type === "image") {
-                    return {
-                      type: "image_url",
-                      image_url: {
-                        url:
-                          part.source?.type === "base64"
-                            ? formatBase64(
-                                part.source.data,
-                                part.source.media_type
-                              )
-                            : part.source.url,
-                      },
-                      media_type: part.source.media_type,
-                      cache_control: part.cache_control,
-                    };
+                content: textAndMediaParts.flatMap((part: any) => {
+                  if (part.type === "document") {
+                    const document = anthropicToolResultToUnified([part]);
+                    if (!Array.isArray(document) || document.length === 0) {
+                      throw createApiError(
+                        "Unsupported Anthropic document source; expected base64 data or a URL",
+                        400,
+                        "invalid_request_error",
+                        "invalid_request_error"
+                      );
+                    }
+                    return document;
                   }
-                  return part;
+                  if (part.type === "image") {
+                    return [
+                      {
+                        type: "image_url",
+                        image_url: {
+                          url:
+                            part.source?.type === "base64"
+                              ? formatBase64(
+                                  part.source.data,
+                                  part.source.media_type
+                                )
+                              : part.source.url,
+                        },
+                        media_type: part.source.media_type,
+                        cache_control: part.cache_control,
+                      },
+                    ];
+                  }
+                  return [part];
                 }),
               });
             }
