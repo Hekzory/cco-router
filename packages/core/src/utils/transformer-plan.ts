@@ -128,7 +128,6 @@ export function isExactProtocolRequestPlan(
 
 const WIRE_SAFE_MIDDLEWARE = new Set([
   "opencode-headers",
-  "qwen-auth",
   "codex",
 ]);
 

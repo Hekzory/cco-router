@@ -81,7 +81,7 @@ Added the **Qwen Chat auth transformer** with JWT-based authentication (`ccr qwe
 All features have dedicated integration guides in the docs:
 
 - [Codex Integration](/docs/server/guides/codex)
-- [Qwen Chat Integration](/docs/server/guides/qwen)
+- [Qwen Chat Integration](https://github.com/Hekzory/cco-router/blob/v3.0.1/docs/docs/server/guides/qwen.md)
 - [Chrome On-Device](https://github.com/Hekzory/cco-router/blob/v3.0.0/docs/docs/server/guides/chrome-on-device.md)
 - [DeepSeek Reasoning Replay](/docs/server/guides/deepseek-reasoning)
 - [Model Discovery](/docs/server/guides/model-discovery)

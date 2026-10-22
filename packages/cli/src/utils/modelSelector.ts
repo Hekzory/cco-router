@@ -64,7 +64,6 @@ const AVAILABLE_TRANSFORMERS = [
   'cleancache',
   'vertex-gemini',
   'chutes-glm',
-  'qwen-cli',
   'rovo-cli'
 ];
 

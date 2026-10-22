@@ -8,19 +8,16 @@ import {
   shouldFimPassthrough,
   outboundFamilyFromTransformerName,
   isFimProviderTransformerName,
-  buildQwenFimPrompt,
   encodeDeepseekFimBody,
   DEEPSEEK_FIM_MAX_TOKENS,
   resolveFimMistralUrl,
   resolveFimDeepseekUrl,
-  resolveFimQwenCompletionsUrl,
   normalizeToFimClientJson,
   encodeFimResponseForInbound,
   normalizeFimSseDataPayload,
 } from "../utils/fim";
 import { FimMistralTransformer } from "../transformer/fim/fim.mistral.transformer";
 import { FimDeepseekTransformer } from "../transformer/fim/fim.deepseek.transformer";
-import { FimQwenTransformer } from "../transformer/fim/fim.qwen.transformer";
 import { matchClientProtocol } from "../routing/protocol-endpoints";
 
 async function main() {
@@ -67,8 +64,7 @@ async function main() {
   {
     assert.equal(shouldFimPassthrough("mistral", "mistral"), true);
     assert.equal(shouldFimPassthrough("deepseek", "deepseek"), true);
-    assert.equal(shouldFimPassthrough("qwen", "qwen"), true);
-    assert.equal(shouldFimPassthrough("mistral", "qwen"), false);
+    assert.equal(shouldFimPassthrough("mistral", "deepseek"), false);
     assert.equal(outboundFamilyFromTransformerName("fim.mistral"), "mistral");
     assert.equal(isFimProviderTransformerName("fim.mistral"), true);
     assert.equal(isFimProviderTransformerName("mistral"), false);
@@ -135,43 +131,6 @@ async function main() {
     assert.deepEqual(out.body.thinking, { type: "disabled" });
   }
 
-  // fim.qwen — LM Studio + DashScope
-  {
-    const tf = new FimQwenTransformer();
-    const expectedPrompt = buildQwenFimPrompt("prefix", "suffix");
-    assert.equal(
-      expectedPrompt,
-      "<|fim_prefix|>prefix<|fim_suffix|>suffix<|fim_middle|>"
-    );
-
-    const lm = (await tf.transformRequestIn(
-      unified,
-      {
-        name: "lmstudio-qwen-fim",
-        baseUrl: "http://127.0.0.1:1234/v1/completions",
-        apiKey: "lm-studio",
-        models: ["qwen2.5-coder-7b-instruct"],
-      },
-      { fimInboundKind: "mistral" } as any
-    )) as any;
-    assert.equal(lm.body.prompt, expectedPrompt);
-    assert.equal(lm.body.suffix, undefined);
-    assert.equal(String(lm.config.url), "http://127.0.0.1:1234/v1/completions");
-
-    const ds = (await tf.transformRequestIn(
-      unified,
-      {
-        name: "dashscope-qwen-fim",
-        baseUrl:
-          "https://dashscope.aliyuncs.com/compatible-mode/v1/completions",
-        apiKey: "sk-dash",
-        models: ["qwen-coder-turbo"],
-      },
-      { fimInboundKind: "mistral" } as any
-    )) as any;
-    assert.equal(ds.body.prompt, expectedPrompt);
-  }
-
   // Future same-kind deepseek passthrough
   {
     const tf = new FimDeepseekTransformer();
@@ -208,12 +167,6 @@ async function main() {
     resolveFimDeepseekUrl("https://api.deepseek.com").pathname,
     "/beta/completions"
   );
-  assert.equal(
-    resolveFimQwenCompletionsUrl(
-      "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    ).pathname,
-    "/compatible-mode/v1/completions"
-  );
 
   {
     // Codestral upstream → mistral inbound wire
@@ -241,12 +194,12 @@ async function main() {
   }
 
   {
-    // LM Studio text_completion → mistral inbound (v1 client) wire
+    // DeepSeek text_completion → mistral inbound (v1 client) wire
     const normalized = encodeFimResponseForInbound(
       {
-        id: "cmpl-qwen",
+        id: "cmpl-deepseek",
         object: "text_completion",
-        model: "qwen/qwen2.5-coder-14b",
+        model: "deepseek-chat",
         created: 42,
         choices: [
           { index: 0, text: "    result = a + b", finish_reason: "stop" },
@@ -263,7 +216,7 @@ async function main() {
   }
 
   {
-    // Future qwen inbound: encode to text_completion (symmetric with inbound)
+    // Future deepseek inbound: encode to text_completion (symmetric with inbound)
     const normalized = encodeFimResponseForInbound(
       {
         id: "chat",
@@ -276,7 +229,7 @@ async function main() {
           },
         ],
       },
-      "qwen"
+      "deepseek"
     );
     assert.equal(normalized.object, "text_completion");
     assert.equal(normalized.choices[0].text, "mid");

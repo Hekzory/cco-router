@@ -11,7 +11,7 @@ async function main() {
   const transformers = new TransformerService({ get(_key: string, fallback: unknown) { return fallback; } } as any, logger);
   await transformers.initialize();
   assert.equal(errors.length, 0);
-  for (const name of ["cursor-sdk", "xai-auth", "chrome-on-device"]) {
+  for (const name of ["cursor-sdk", "xai-auth", "chrome-on-device", "qwen-auth", "fim.qwen"]) {
     assert.equal(transformers.getTransformer(name), undefined);
     assert.ok(!transformers.getTransformersWithoutEndpoint().some((item) => item.name === name));
   }
@@ -20,7 +20,7 @@ async function main() {
   }
 
   // A stale provider must not silently run without its auth/transport adapter.
-  for (const name of ["cursor-sdk", "xai-auth", "chrome-on-device", "missing-plugin"]) {
+  for (const name of ["cursor-sdk", "xai-auth", "chrome-on-device", "qwen-auth", "fim.qwen", "missing-plugin"]) {
     for (const entry of [name, [name, {}]]) {
       for (const transformer of [{ use: [entry] }, { model: { use: [entry] } }]) {
         errors.length = 0;

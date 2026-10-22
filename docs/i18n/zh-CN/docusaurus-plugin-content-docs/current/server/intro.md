@@ -7,7 +7,6 @@ HTTP API，支持：
 - **API 请求路由**：归一化支持的客户端协议，选择提供商/模型，并转换为提供商线格式
 - **认证与授权**：支持 API Key 认证
 - **配置管理**：动态配置提供商、路由规则和转换器
-- **Web UI**：内置管理界面
 - **日志系统**：完整的请求日志记录
 
 ## 架构概述
@@ -28,7 +27,6 @@ HTTP API，支持：
                          │  - 配置管理                 │
                          └─────────────────────────────┘
                                 │
-                                ├─ Web UI
                                 ├─ Config API
                                 └─ Logs API
 ```
@@ -92,7 +90,7 @@ interface Transformer {
 - **Anthropic**（协议所有者）：Anthropic Messages（`/v1/messages`）
 - **OpenAI**（协议所有者）：Chat Completions（`/v1/chat/completions`）
 - **openai-responses**（协议所有者）：Responses API（`/v1/responses`）
-- **Fim**（协议所有者）+ **fim.mistral** / **fim.deepseek** / **fim.qwen**：FIM Completions（`/v1/fim/completions`）
+- **Fim**（协议所有者）+ **fim.mistral** / **fim.deepseek**：FIM Completions（`/v1/fim/completions`）
 - **gemini**：Google Gemini API 格式
 - **vertex-gemini / vertex-claude**：Google Vertex AI 格式
 - **deepseek**：DeepSeek API 格式
@@ -103,7 +101,6 @@ interface Transformer {
 - **codex**：Codex（ChatGPT）后端 API
 - **claude-auth**：Claude Pro/Max 订阅 OAuth
 - **antigravity-auth**：Google Antigravity（`cloudcode-pa`）OAuth + 封包
-- **qwen-auth**：Qwen Chat 认证（基于 JWT）
 - **vercel**：Vercel AI SDK 格式
 - **opencode-headers**：OpenCode 请求头注入
 - **以及其他工具转换器**：`cleancache`、`customparams`、`enhancetool`、`forcereasoning`、`maxcompletiontokens`、`maxtoken`、`reasoning`、`sampling`、`streamoptions`、`tooluse`

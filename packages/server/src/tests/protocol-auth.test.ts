@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import Fastify from "fastify";
-import { apiKeyAuth, detectClientProtocol } from "../middleware/auth";
+import { apiKeyAuth, apiKeysMatch, detectClientProtocol } from "../middleware/auth";
 
 const CONFIG = {
   APIKEY: "test-router-secret",
@@ -37,7 +37,23 @@ async function buildApp() {
 }
 
 async function main(): Promise<void> {
+  assert.equal(apiKeysMatch(CONFIG.APIKEY, CONFIG.APIKEY), true);
+  assert.equal(apiKeysMatch("wrong", CONFIG.APIKEY), false);
+  assert.equal(apiKeysMatch("test-router-secrex", CONFIG.APIKEY), false);
+  assert.equal(apiKeysMatch(undefined, CONFIG.APIKEY), false);
+  assert.equal(apiKeysMatch(CONFIG.APIKEY, 123), false);
+
   const app = await buildApp();
+
+  // Browser cookies cannot authenticate API requests after UI removal.
+  const cookieOnly = await app.inject({
+    method: "POST",
+    url: "/v1/responses",
+    headers: { cookie: "ccr_ui_session=old-session", origin: "http://localhost:3456" },
+    payload: { model: "x", input: "hi" },
+  });
+  assert.equal(cookieOnly.statusCode, 401);
+  assert.equal(cookieOnly.json().error.code, "missing_api_key");
 
   // Missing key → OpenAI-shaped 401 on Chat
   {

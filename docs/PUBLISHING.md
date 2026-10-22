@@ -2,7 +2,7 @@
 
 ## cco-router
 
-Release versions: product `3.0.1`, core `1.0.76`, without a fork suffix.
+Release versions: product `3.0.2`, core `1.0.77`, without a fork suffix.
 Releases are bundled CLI archives in `Hekzory/cco-router`, not npm publications.
 Package names, archive prefix and `ccr` stay unchanged for now, so installed
 launchers and config paths keep working. Do not rename an old tag
@@ -11,8 +11,8 @@ or replace a published archive.
 After build, typecheck, lint and hermetic tests pass, tag the CLI version:
 
 ```bash
-git tag v3.0.1
-git push origin v3.0.1
+git tag v3.0.2
+git push origin v3.0.2
 ```
 
 `release.yml` repeats the checks, tests a clean archive installation, and
@@ -20,7 +20,7 @@ publishes the `.tgz` and `SHA256SUMS`. Install by the pinned release URL;
 no GitHub token is needed. Never replace an existing release asset.
 
 ```bash
-npm install --ignore-scripts https://github.com/Hekzory/cco-router/releases/download/v3.0.1/caeliq-claude-code-router-3.0.1.tgz
+npm install --ignore-scripts https://github.com/Hekzory/cco-router/releases/download/v3.0.2/caeliq-claude-code-router-3.0.2.tgz
 ```
 
 Upstream npm, Docker and Pages workflows run only in the upstream repository.
@@ -149,7 +149,7 @@ Publish order inside the script is always: shared → llms → CLI.
 ## 6. Later releases
 
 1. Bump versions in `package.json` files before tagging:
-   - Always bump `@caeliq/ccr-shared` and the CLI (and usually root / UI to match) — `scripts/release.sh` publishes shared every run and will fail if that version already exists on npm
+   - Always bump `@caeliq/ccr-shared` and the CLI (and usually root / server to match) — `scripts/release.sh` publishes shared every run and will fail if that version already exists on npm
    - Bump `@caeliq/llms` whenever core changes
    - `@caeliq/ccr-server` is not published to npm; its code ships inside the CLI bundle
 2. Ensure `packages/core` still depends on a published `@caeliq/ccr-shared` version range that exists (`workspace:*` is rewritten to `^<shared version>` at publish time)

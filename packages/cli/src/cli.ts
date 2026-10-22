@@ -5,7 +5,6 @@ import { executeCodeCommand, PresetConfig } from "./utils/codeCommand";
 import {
   cleanupPidFile,
   isServiceRunning,
-  getServiceInfo,
 } from "./utils/processCheck";
 import { runModelSelector } from "./utils/modelSelector";
 import { runModelGet } from "./utils/modelGet";
@@ -20,7 +19,6 @@ import {handlePresetCommand} from "./utils/preset";
 import { handleInstallCommand } from "./utils/installCommand";
 import { runCodexAuth } from "./utils/codex-cli-auth";
 import { codexConfigCommand } from "./utils/codexConfig";
-import { runQwenAuth } from "./utils/qwen-cli-auth";
 import { runClaudeAuth } from "./utils/claude-auth-cli";
 import { runAntigravityAuth } from "./utils/antigravity-cli-auth";
 
@@ -39,10 +37,8 @@ const KNOWN_COMMANDS = [
   "install",
   "activate",
   "env",
-  "ui",
   "codex-auth",
   "codex-config",
-  "qwen-auth",
   "claude-auth",
   "antigravity-auth",
   "-v",
@@ -66,12 +62,10 @@ Commands:
   preset        Manage presets (export, install, list, delete)
   install       Install preset from GitHub marketplace
   activate      Output environment variables for shell integration
-  ui            Open the web UI in browser
   codex-auth    Authenticate with Codex API via OAuth
   codex-config  Publish CCR models to Codex (config.toml + model catalog)
                 Options: --providers <a,b>, --models <glob>, --base-url <url>,
                          --codex-home <dir>, --dry-run, --force, --no-codex-probe
-  qwen-auth     Authenticate with Qwen Chat (paste JWT from localStorage)
   claude-auth   Show Claude Code OAuth credential status and provider config
   antigravity-auth  Authenticate with Google Antigravity via OAuth
                     Options: --manual, --project <id>
@@ -92,7 +86,6 @@ Examples:
   ccr preset list                        # List all presets
   ccr install my-preset                  # Install preset from marketplace
   eval "$(ccr activate)"  # Set environment variables globally
-  ccr ui
 `;
 
 async function waitForService(
@@ -304,9 +297,6 @@ async function main() {
     case "codex-config":
       await codexConfigCommand(process.argv.slice(3));
       break;
-    case "qwen-auth":
-      await runQwenAuth();
-      break;
     case "claude-auth":
       await runClaudeAuth();
       break;
@@ -347,134 +337,6 @@ async function main() {
         executeCodeCommand(codeArgs);
       }
       break;
-    case "ui": {
-      // Check if service is running
-      if (!isRunning) {
-        console.log("Service not running, starting service...");
-        const cliPath = join(__dirname, "cli.js");
-        const startProcess = spawn(process.execPath, [cliPath, "start"], {
-          detached: true,
-          stdio: "ignore",
-        });
-
-        startProcess.on("error", (error) => {
-          console.error("Failed to start service:", error.message);
-          process.exit(1);
-        });
-
-        startProcess.unref();
-
-        if (!(await waitForService())) {
-          // If service startup fails, try to start with default config
-          console.log(
-            "Service startup timeout, trying to start with default configuration..."
-          );
-          const {
-            initDir,
-            writeConfigFile,
-            backupConfigFile,
-          } = require("./utils");
-
-          try {
-            // Initialize directories
-            await initDir();
-
-            // Backup existing config file if it exists
-            const backupPath = await backupConfigFile();
-            if (backupPath) {
-              console.log(
-                `Backed up existing configuration file to ${backupPath}`
-              );
-            }
-
-            // Create a minimal default config file
-            await writeConfigFile({
-              PORT: 3456,
-              Providers: [],
-              Router: {},
-            });
-            console.log(
-              "Created minimal default configuration file at ~/.claude-code-router/config.json"
-            );
-            console.log(
-              "Please edit this file with your actual configuration."
-            );
-
-            // Try starting the service again
-            const restartProcess = spawn("node", [cliPath, "start"], {
-              detached: true,
-              stdio: "ignore",
-            });
-
-            restartProcess.on("error", (error) => {
-              console.error(
-                "Failed to start service with default config:",
-                error.message
-              );
-              process.exit(1);
-            });
-
-            restartProcess.unref();
-
-            if (!(await waitForService(15000))) {
-              // Wait a bit longer for the first start
-              console.error(
-                "Service startup still failing. Please manually run `ccr start` to start the service and check the logs."
-              );
-              process.exit(1);
-            }
-          } catch (error: any) {
-            console.error(
-              "Failed to create default configuration:",
-              error.message
-            );
-            process.exit(1);
-          }
-        }
-      }
-
-      // Get service info and open UI
-      const serviceInfo = await getServiceInfo();
-
-      // Add temporary API key as URL parameter if successfully generated
-      const uiUrl = `${serviceInfo.endpoint}/ui/`;
-
-      console.log(`Opening UI at ${uiUrl}`);
-
-      // Open URL in browser based on platform
-      const platform = process.platform;
-      let openResult;
-
-      if (platform === "win32") {
-        // Use cmd /c start with an empty window title so URLs and paths with
-        // spaces are handled correctly on Windows.
-        openResult = spawn(process.env.ComSpec || process.env.COMSPEC || "cmd.exe", ["/d", "/c", "start", "", uiUrl], {
-          detached: true,
-          stdio: "ignore",
-          windowsVerbatimArguments: true,
-        });
-      } else if (platform === "darwin") {
-        openResult = spawn("open", [uiUrl], {
-          detached: true,
-          stdio: "ignore",
-        });
-      } else if (platform === "linux") {
-        openResult = spawn("xdg-open", [uiUrl], {
-          detached: true,
-          stdio: "ignore",
-        });
-      } else {
-        console.error("Unsupported platform for opening browser");
-        process.exit(1);
-      }
-
-      openResult.on("error", (error) => {
-        console.error("Failed to open browser:", error.message);
-        process.exit(1);
-      });
-      openResult.unref();
-      break;
-    }
     case "-v":
     case "version":
       console.log(`claude-code-router version: ${version}`);

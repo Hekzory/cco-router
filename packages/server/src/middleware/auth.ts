@@ -1,6 +1,16 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { matchClientProtocol, protocolErrorBody } from "@caeliq/llms";
-import { apiKeysMatch, hasValidUiSession } from "../auth/ui-session";
+import { timingSafeEqual } from "node:crypto";
+
+export function apiKeysMatch(candidate: unknown, configured: unknown): boolean {
+  if (typeof candidate !== "string" || typeof configured !== "string") {
+    return false;
+  }
+  const candidateBytes = Buffer.from(candidate);
+  const configuredBytes = Buffer.from(configured);
+  if (candidateBytes.length !== configuredBytes.length) return false;
+  return timingSafeEqual(candidateBytes, configuredBytes);
+}
 
 function sendAuthError(
   req: FastifyRequest,
@@ -32,16 +42,14 @@ export const apiKeyAuth =
   (config: any) =>
     async (req: FastifyRequest, reply: FastifyReply, done: () => void) => {
       // Public endpoints that don't require authentication
-      const publicPaths = ["/", "/health", "/favicon.ico", "/api/auth/login", "/callback", "/auth/callback", "/oauth-callback", "/qwen/auth", "/qwen/forget", "/qwen/status"];
+      const publicPaths = ["/", "/health", "/callback", "/auth/callback", "/oauth-callback"];
       // Match on the path alone — OAuth callbacks arrive as
       // /oauth-callback?code=…&state=… — and keep /oauth-callback an exact match
       // so a lookalike path cannot slip past the API key check.
       const path = req.url.split("?")[0];
       if (
         publicPaths.includes(path) ||
-        path.startsWith("/ui") ||
         path.startsWith("/auth") ||
-        path.startsWith("/qwen/") ||
         path.startsWith("/callback")
       ) {
         return done();
@@ -105,46 +113,6 @@ export const apiKeyAuth =
         if (!apiKeysMatch(token, apiKey)) {
           sendAuthError(req, reply, "Invalid API key", 401, "invalid_api_key");
           return;
-        }
-        done();
-        return;
-      }
-
-      if (hasValidUiSession(req)) {
-        const method = req.method.toUpperCase();
-        if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-          const origin = req.headers.origin;
-          if (!origin) {
-            sendAuthError(
-              req,
-              reply,
-              "Origin required for session request",
-              403,
-              "origin_required"
-            );
-            return;
-          }
-          try {
-            if (new URL(origin).host !== req.host) {
-              sendAuthError(
-                req,
-                reply,
-                "Cross-origin session request denied",
-                403,
-                "cors_denied"
-              );
-              return;
-            }
-          } catch {
-            sendAuthError(
-              req,
-              reply,
-              "Invalid origin for session request",
-              403,
-              "invalid_origin"
-            );
-            return;
-          }
         }
         done();
         return;

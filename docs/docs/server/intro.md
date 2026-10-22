@@ -11,7 +11,6 @@ provides a complete HTTP API with support for:
 - **API Request Routing**: Normalize supported client protocols, select a provider/model, and convert to the provider wire format
 - **Authentication & Authorization**: Support API Key authentication
 - **Configuration Management**: Dynamic configuration of providers, routing rules, and transformers
-- **Web UI**: Built-in management interface
 - **Logging System**: Complete request logging with file rotation
 - **Documentation**: Built-in Docusaurus documentation site with GitHub Pages deployment
 
@@ -33,7 +32,6 @@ provides a complete HTTP API with support for:
                          │  - Configuration            │
                          └─────────────────────────────┘
                                 │
-                                ├─ Web UI
                                 ├─ Config API
                                 └─ Logs API
 ```
@@ -97,7 +95,7 @@ The core package includes transformers for:
 - **Anthropic** (protocol owner): Anthropic Messages (`/v1/messages`)
 - **OpenAI** (protocol owner): Chat Completions (`/v1/chat/completions`)
 - **openai-responses** (protocol owner): Responses API (`/v1/responses`)
-- **Fim** (protocol owner) + **fim.mistral** / **fim.deepseek** / **fim.qwen**: FIM Completions (`/v1/fim/completions`)
+- **Fim** (protocol owner) + **fim.mistral** / **fim.deepseek**: FIM Completions (`/v1/fim/completions`)
 - **gemini**: Google Gemini API format
 - **vertex-gemini / vertex-claude**: Google Vertex AI formats
 - **deepseek**: DeepSeek API format
@@ -108,7 +106,6 @@ The core package includes transformers for:
 - **codex**: Codex (ChatGPT) backend API
 - **claude-auth**: Claude Pro/Max subscription OAuth
 - **antigravity-auth**: Google Antigravity (`cloudcode-pa`) OAuth + envelope
-- **qwen-auth**: Qwen Chat authentication (JWT-based)
 - **vercel**: Vercel AI SDK format
 - **opencode-headers**: OpenCode header injection
 - **And more utility transformers**: `cleancache`, `customparams`, `enhancetool`, `forcereasoning`, `maxcompletiontokens`, `maxtoken`, `reasoning`, `sampling`, `streamoptions`, `tooluse`

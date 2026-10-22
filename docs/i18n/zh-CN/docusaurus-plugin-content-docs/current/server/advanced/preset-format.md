@@ -980,15 +980,8 @@ ccr preset install my-preset
 ```
 
 :::note 注意
-CLI 方式**不支持**从 URL 安装。如需从 GitHub 安装，请使用 Web UI 或先克隆到本地。
+CLI 方式**不支持**从 URL 安装。如需从 GitHub 安装，请先克隆到本地。
 :::
-
-**Web UI 方式：**
-
-1. 访问 Web UI：`ccr ui`
-2. 点击"预设商城"按钮
-3. 选择预设或输入 GitHub 仓库 URL
-4. 点击安装
 
 ### 管理预设
 

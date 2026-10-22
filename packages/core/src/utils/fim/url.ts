@@ -26,27 +26,6 @@ export function resolveFimDeepseekUrl(baseUrl: string): URL {
   return new URL("/beta/completions", `${url.protocol}//${url.host}`);
 }
 
-/**
- * Qwen / LM Studio / DashScope: OpenAI legacy completions.
- * Trust api_base_url when it already ends with /completions.
- */
-export function resolveFimQwenCompletionsUrl(baseUrl: string): URL {
-  const url = new URL(baseUrl);
-  const path = url.pathname.replace(/\/$/, "") || "";
-  if (path.endsWith("/completions") && !path.endsWith("/chat/completions")) {
-    return url;
-  }
-  if (
-    path.endsWith("/v1") ||
-    path.endsWith("/compatible-mode/v1") ||
-    /\/compatible-mode\/v1$/.test(path)
-  ) {
-    url.pathname = `${path}/completions`.replace(/\/+/g, "/");
-    return url;
-  }
-  return new URL("/v1/completions", baseUrl);
-}
-
 export function bearerAuthHeaders(
   apiKey: string | undefined
 ): Record<string, string> {

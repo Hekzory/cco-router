@@ -8,9 +8,7 @@ CLI uses the same configuration file as Server: `~/.claude-code-router/config.js
 
 ## Configuration Methods
 
-You can configure Claude Code Router in two ways:
-
-### Option 1: Edit Configuration File Directly
+### Edit Configuration File Directly
 
 Edit `~/.claude-code-router/config.json` with your favorite editor:
 
@@ -18,23 +16,14 @@ Edit `~/.claude-code-router/config.json` with your favorite editor:
 nano ~/.claude-code-router/config.json
 ```
 
-### Option 2: Use Web UI
-
-Open the web interface and configure visually:
-
-```bash
-ccr ui
-```
-
 ## Restart After Configuration Changes
 
-After modifying the configuration file or making changes through the Web UI, you must restart the service:
+After modifying the configuration file, you must restart the service:
 
 ```bash
 ccr restart
 ```
 
-Or restart directly through the Web UI.
 
 ## Configuration File Location
 
@@ -238,7 +227,7 @@ How to read it:
   visible without reading the log file.
 - **cache** — prompt-cache hit rate for the window, the always-on companion to
   the `cache outcome` records that `LOG_LEVEL: "debug"` writes per request.
-  Only routed LLM requests are counted; UI and status polling are excluded.
+  Only routed LLM requests are counted; health and status polling are excluded.
 
 #### Health state file and endpoint
 
@@ -272,24 +261,6 @@ curl -s http://127.0.0.1:3456/health
 the last written report, so it is never up to one interval stale. On a server
 without the heartbeat (or with `HEARTBEAT_INTERVAL_MS: 0`) the field is simply
 absent and the probe keeps its original `status` + `timestamp` contract.
-
-#### Status bar in the Web UI
-
-`ccr ui` shows a compact bar above every page fed by `/health` — never by the
-file on disk. It polls on the server's own cadence (`intervalMs`, so every
-10 minutes by default) and colours each metric:
-
-| Metric | Yellow | Red |
-| --- | --- | --- |
-| Memory (system/container used) | 75% | 90% |
-| Process CPU (cores) | 0.50 | 0.80 |
-| Event loop p99 | 50 ms | 200 ms |
-| Failed requests | 2% | 10% |
-
-The overall dot is the worst of those four. Sessions and cache hit rate are
-shown for context but do not drive the colour — a low hit rate costs money, it
-does not mean the proxy is unhealthy. The bar hides itself entirely when the
-server reports no `vitals`.
 
 ### Routing Configuration
 
@@ -328,13 +299,12 @@ Configuration is automatically backed up on each update:
 
 ## Apply Configuration Changes
 
-After modifying the configuration file or making changes through the Web UI, restart the service:
+After modifying the configuration file, restart the service:
 
 ```bash
 ccr restart
 ```
 
-Or restart directly through the Web UI by clicking the "Save and Restart" button.
 
 ## View Current Configuration
 

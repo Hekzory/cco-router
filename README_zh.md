@@ -9,7 +9,7 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 
 - **自适应模型路由**：按场景路由请求，包括后台任务、思考、长上下文、网络搜索和图像工作流。
 - **工具调用与思考**：在不同 API 格式的提供商之间保留工具调用、工具结果和推理内容。
-- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Gemini、Antigravity、Codex、Claude 订阅、Qwen。
+- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Gemini、Antigravity、Codex、Claude 订阅。
 - **请求/响应转换**：使用 transformers 为不同提供商定制请求和响应。
 - **原生客户端协议**：通过同一路由器和回退管道接受 Anthropic Messages、OpenAI Chat Completions 和 OpenAI Responses 请求。
 - **动态模型切换**：在 Claude Code 中使用 `/model` 命令即时切换模型。
@@ -24,13 +24,12 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 - **改进的 LLM 支持**：修复了 Gemini/Gemma 的流式传输，增强了 OpenAI API 处理能力。
 - **推理与流式重构**：将流式传输和推理逻辑模块化为可复用的工具，提升可维护性。
 - **Mistral 集成**：添加了对 Mistral 推理参数的特殊处理，并解耦了转换逻辑。
-- **构建与部署**：将 UI 包集成到 Docker 构建流程，并添加了 Docker Compose 配置。
+- **构建与部署**：提供 Docker 构建和 Docker Compose 配置。
 - **代码质量**：代码库本地化（英文注释），改进错误处理，处理 Copilot 审查反馈。
 - **Gemini 稳定性与工具调用修复**：修正了 Gemini 请求体中 `thoughtSignature` 的位置（Gemini 3 要求将其作为 `functionCall` 部分的同级字段，且仅验证每个步骤的第一个此类部分）；过滤了出站 Gemini 请求中的合成 `ccr_` 占位符签名，防止 Gemini 500 错误；修复了 Anthropic 转换器中 `tool_result` 内容数组序列化问题，使模型接收纯文本而非 JSON 包裹的数组（解决了 Claude Code 中的"Error editing file"问题）；修复了 Fastify `onSend` 钩子，防止错误响应时出现未处理的 `invalid type 'object'` 拒绝。
 - **Codex (ChatGPT) 集成**：添加了用于 ChatGPT 后端 API (Responses API) 的 Codex 转换器，支持基于 OAuth 的身份验证（`ccr codex-auth`）和通过 `api_key: "at-..."` 的 PAT 认证，以及 SSE 流式传输、推理/思考内容、带网络搜索的工具调用和图片处理。
 - **Claude 订阅集成**：添加了 `claude-auth` 支持，通过 OAuth (`ccr claude-auth`) 使用 Claude Pro 或 Max 订阅进行路由，使用 `claude-auth` + `Anthropic` 转换器链。
 - **Antigravity 集成**：添加了 Google Antigravity OAuth 支持（`ccr antigravity-auth`），使用 `antigravity-auth` + `gemini` 转换器链，目标为 Antigravity / `cloudcode-pa` API。支持该额度下的 Gemini 和 Claude 模型、思路签名往返/回退，以及针对 Gemini 后端 Claude 模型的 Claude 工具模式清理。需要 `gemini` 选项 `{"cachedContent": false}`，因为 Antigravity 没有 Google `cachedContents` 资源（保留默认值 `true` 会导致 404）。
-- **Qwen Chat 集成**：添加了 `qwen-auth` 转换器，用于 Qwen Chat 后端（`qwen.aikit.club/v1/chat/completions`），支持基于 JWT 的认证（`ccr qwen-auth`），用户粘贴从 `chat.qwen.ai` localStorage 复制的令牌，自动令牌轮换，以及去除 Qwen 注入到响应中的尾部 `<details>...</details>` 元数据块。
 - **DeepSeek 推理重放**：为 DeepSeek 模型（例如通过 OpenCode/ZenGo）实现了强制推理重放。DeepSeek 要求在后续请求中包含前次助手的推理内容——`reasoning` 转换器会自动重放先前轮次的推理输出。
 - **模型发现**：为任意 API 提供商启用了非交互式模型发现。使用 `ccr model get <provider>`，该工具自动获取远程模型，使用可配置路径解析自定义 JSON 结构，并将缺失的模型追加到本地配置，同时保留现有设置。
 
@@ -57,7 +56,7 @@ docker run -d --name ccr \
   ghcr.io/oakimov/claude-code-router:latest
 ```
 
-镜像自带服务器和 UI，在 `http://localhost:3456` 暴露代理，并将 `~/.claude-code-router` 挂载为配置目录（容器内的 `/root/.claude-code-router`）。请在 `config.json` 中设置 `"HOST": "0.0.0.0"`，以便端口映射能够访问服务器。修改配置后使用 `docker restart ccr` 重启；使用 `docker logs -f ccr` 查看日志。
+镜像自带服务器，在 `http://localhost:3456` 暴露代理，并将 `~/.claude-code-router` 挂载为配置目录（容器内的 `/root/.claude-code-router`）。请在 `config.json` 中设置 `"HOST": "0.0.0.0"`，以便端口映射能够访问服务器。修改配置后使用 `docker restart ccr` 重启；使用 `docker logs -f ccr` 查看日志。
 
 ### 2. 配置
 
@@ -71,7 +70,7 @@ docker run -d --name ccr \
 - **日志系统**：Claude Code Router 使用两套独立的日志系统：
   - **服务器级日志**：使用 pino 将 HTTP 请求、API 调用和服务器事件记录在 `~/.claude-code-router/logs/` 目录下，文件名形如 `ccr-*.log`
   - **应用级日志**：路由决策和业务逻辑事件记录在 `~/.claude-code-router/claude-code-router.log`
-- **`APIKEY`**（可选）：可以设置密钥来验证请求。API 客户端可在 `Authorization` 头（例如 `Bearer your-secret-key`）或 `x-api-key` 头中提供。Web UI 会将其换成一个不透明的 `HttpOnly` 同站会话 cookie，绝不会把密钥存储到浏览器存储中。UI 会话保存在内存中，CCR 重启后需要重新登录。示例：`"APIKEY": "your-secret-key"`。
+- **`APIKEY`**（可选）：可以设置密钥来验证请求。API 客户端可在 `Authorization` 头（例如 `Bearer your-secret-key`）或 `x-api-key` 头中提供。示例：`"APIKEY": "your-secret-key"`。
 - **`HOST`**（可选）：可以设置服务器的主机地址。如果未设置 `APIKEY`，出于安全原因主机将被强制为 `127.0.0.1`，以防止未经授权的访问。示例：`"HOST": "0.0.0.0"`。
 - **速率限制**：每条路由默认限制为每分钟 1000 个请求。共享默认值由 `packages/shared/src/constants.ts` 中的 `RATE_LIMIT_CONFIG` 定义；在那里修改可更新所有路由的限制。
 - **`NON_INTERACTIVE_MODE`**（可选）：设为 `true` 时，启用与 GitHub Actions、Docker 容器或其他 CI/CD 系统等非交互环境的兼容性。它会设置适当的环境变量（`CI=true`、`FORCE_COLOR=0` 等）并配置 stdin 处理，防止进程在自动化环境中挂起。示例：`"NON_INTERACTIVE_MODE": true`。
@@ -206,19 +205,7 @@ CCR 在 `/v1/chat/completions`（别名 `/chat/completions`）接受 Chat Comple
 > ccr restart
 > ```
 
-### 4. UI 模式
-
-如需更直观的体验，可以使用 UI 模式管理配置：
-
-```shell
-ccr ui
-```
-
-这会打开一个基于 Web 的界面，您可以在其中轻松查看和编辑 `config.json` 文件。
-
-![UI](blog/images/ui.png)
-
-### 5. CLI 模型管理
+### 4. CLI 模型管理
 
 对于偏好终端工作流的用户，可以使用交互式 CLI 模型选择器：
 
@@ -304,19 +291,7 @@ OAuth 流程由 CCR 服务器在端口 `1455` 上处理回调（Docker 映射 `1
 
 > **另请参阅**：完整的设置、transformer 链、客户端分类和计费/身份细节见 `docs/docs/server/guides/claude-auth.md`。
 
-#### Qwen 提供商身份验证
-
-通过保存从 `chat.qwen.ai` localStorage 获取的 JWT 来与 Qwen Chat 认证：
-
-```shell
-ccr qwen-auth
-```
-
-CCR 服务器在 `/qwen/auth` 提供一个认证页面，支持小书签或手动粘贴。token 会被校验、保存到 `~/.claude-code-router/qwen_auth.json` 并自动刷新。Qwen 提供商需要 `qwen-auth` + `reasoning` + `OpenAI` transformer 链。
-
-> **另请参阅**：完整的 Qwen 设置和提供商配置见 `docs/docs/server/guides/qwen.md`。
-
-### 6. 预设管理
+### 5. 预设管理
 
 保存、共享和复用配置：
 
@@ -333,7 +308,7 @@ ccr preset delete my-preset
 
 > **另请参阅**：`docs/docs/cli/commands/preset.md`。
 
-### 7. Activate 命令（环境变量设置）
+### 6. Activate 命令（环境变量设置）
 
 `activate` 命令允许您在 shell 中全局设置环境变量，从而可以直接使用 `claude` 命令，或将 Claude Code Router 与基于 Agent SDK 构建的应用程序集成。
 
@@ -368,9 +343,9 @@ eval "$(ccr activate)"
 **内置 Transformers：**
 
 - `Anthropic` — 原样透传到 Anthropic 端点。`OpenAI` — 注册 `/v1/chat/completions` 路由（请求体已是 OpenAI 格式）。
-- 提供商适配器：`deepseek`、`groq`、`mistral`、`openrouter`、`gemini` / `vertex-gemini`、`codex`、`claude-auth`、`antigravity-auth`、`qwen-auth`。
+- 提供商适配器：`deepseek`、`groq`、`mistral`、`openrouter`、`gemini` / `vertex-gemini`、`codex`、`claude-auth`、`antigravity-auth`。
 - `maxtoken` — 设置特定的 `max_tokens`。`tooluse` — 通过 `tool_choice` 优化工具使用。`reasoning` — 跨轮次回放提供商的 `reasoning_content`。`sampling` — 映射 `temperature` / `top_p` / `top_k` / `repetition_penalty`。`enhancetool` — 为工具调用参数添加容错层（会使工具调用信息不再流式传输）。`cleancache` — 清除 `cache_control`。`customparams` — 注入自定义请求参数。
-- 实验性 gist/CLI 集成：`gemini-cli`、`chutes-glm`、`qwen-cli`、`rovo-cli`。
+- 实验性 gist/CLI 集成：`gemini-cli`、`chutes-glm`、`rovo-cli`。
 
 > **另请参阅**：完整的 transformer 参考 — 包括 `gemini` 的 `cachedContent` / `thoughtSignatureFallback` 选项和 `openrouter` 的提供商路由参数 — 见 `docs/docs/server/config/transformers.md`。
 
@@ -425,7 +400,7 @@ CCR 会自动将 Claude Code 的 Anthropic 缓存意图转换为每个上游的�
 - Anthropic、Claude Auth 和 Vertex Claude 使用 Anthropic 自动提示缓存，同时保留有界的显式块标记。
 - OpenAI Chat 和 Responses 使用稳定的 `prompt_cache_key` 值；GPT-5.6+ 模型还会收到显式的内容断点。Codex 对每个模型使用其独立的原生契约：稳定的提示键加会话路由头，无显式内容断点。
 - OpenRouter 使用粘性 `session_id` 路由加模型原生缓存。Vercel AI Gateway 接收 `providerOptions.gateway.caching: "auto"`。
-- Mistral 和 Cerebras 接收原生 `prompt_cache_key` 值。Qwen/DashScope 接收最终内容缓存标记。DeepSeek、Groq 和 Vertex OpenAI 保留其原生隐式缓存。
+- Mistral 和 Cerebras 接收原生 `prompt_cache_key` 值。DeepSeek、Groq 和 Vertex OpenAI 保留其原生隐式缓存。
 - Gemini 和 Vertex Gemini 使用隐式缓存，并为足够大的稳定系统/工具前缀创建/复用原生 CachedContent 资源。
 
 不兼容提供商的缓存字段只在转换后移除。上游上报的缓存读/写用量会转换回 Anthropic 的 `cache_read_input_tokens` 和 `cache_creation_input_tokens`，供 Claude Code 使用。

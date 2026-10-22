@@ -2,7 +2,7 @@ import { UnifiedChatRequest } from "@/types/llm";
 import { Transformer, TransformerOptions } from "../types/transformer";
 import { createSSEStreamReader, StreamContext, encodeSSEData, encodeSSELine } from "../utils/stream";
 import {
-  applyQwenPromptCaching,
+  applyLastMessageCacheBreakpoint,
   applyRawAnthropicPromptCaching,
   deriveCacheSessionKey,
   stripMessagesCacheControl,
@@ -195,18 +195,13 @@ export class OpenrouterTransformer implements Transformer {
       normalizedModel.startsWith("gpt-")
     ) {
       request = applyOpenAIChatCaching(request, provider, context);
-    } else if (
-      normalizedModel.includes("qwen") ||
-      normalizedModel.includes("alibaba")
-    ) {
-      request = applyQwenPromptCaching(request);
     } else if (normalizedModel.includes("gemini")) {
       // Gemini caching on OpenRouter requires cache_control breakpoints
       // inserted within message content, in the same ephemeral format as
       // Anthropic (OpenRouter uses only the last breakpoint for Gemini). This
-      // is the content-level marker applyQwenPromptCaching emits; a top-level
+      // is the content-level marker applyLastMessageCacheBreakpoint emits; a top-level
       // request.cache_control would not be honoured on this endpoint.
-      request = applyQwenPromptCaching(request);
+      request = applyLastMessageCacheBreakpoint(request);
     } else {
       request = {
         ...request,

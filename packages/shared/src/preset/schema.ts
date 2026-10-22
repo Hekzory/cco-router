@@ -323,7 +323,7 @@ function getSchemaFields(schema?: RequiredInput[]): Set<string> {
 /**
  * Apply user inputs to preset configuration
  * This is the core function of the preset configuration system, uniformly handling
- * configuration application for both CLI and UI layers
+ * configuration application for preset consumers
  *
  * @param presetFile Preset file object
  * @param values User input values (schema id -> value)

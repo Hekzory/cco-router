@@ -1,15 +1,14 @@
 {
   "name": "claude-code-router",
   "private": true,
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "cco-router: Claude Code through an OpenAI subscription",
   "scripts": {
-    "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli && pnpm build:ui",
+    "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli",
     "build:core": "pnpm --filter @caeliq/llms build",
     "build:shared": "pnpm --filter @caeliq/ccr-shared build",
     "build:cli": "pnpm --filter @caeliq/claude-code-router build",
     "build:server": "pnpm --filter @caeliq/ccr-server build",
-    "build:ui": "pnpm --filter @caeliq/ccr-ui build",
     "build:docs": "pnpm --filter claude-code-router-docs build",
     "test": "node scripts/run-tests.js",
     "test:live": "node scripts/run-tests.js --live cli",
@@ -20,7 +19,6 @@
     "release:docker": "bash scripts/release.sh docker",
     "dev:cli": "pnpm --filter @caeliq/claude-code-router dev",
     "dev:server": "pnpm --filter @caeliq/ccr-server dev",
-    "dev:ui": "pnpm --filter @caeliq/ccr-ui dev",
     "dev:core": "pnpm --filter @caeliq/llms dev",
     "dev:docs": "pnpm --filter claude-code-router-docs start",
     "serve:docs": "pnpm --filter claude-code-router-docs serve"

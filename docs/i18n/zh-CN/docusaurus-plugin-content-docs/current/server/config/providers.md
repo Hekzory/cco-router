@@ -139,62 +139,6 @@ sidebar_position: 2
 
 完整选项说明：[转换器 → gemini](/docs/server/config/transformers#options-cachedcontent-and-thoughtsignaturefallback)。另见 [CLI 认证命令](/docs/cli/commands/auth)。
 
-### Qwen Chat
-
-需要通过 `ccr qwen-auth` 完成 JWT 认证。
-
-```json
-{
-  "name": "qwen",
-  "baseUrl": "https://qwen.aikit.club/v1/chat/completions",
-  "apiKey": "oauth_dummy_key",
-  "models": ["qwen-max", "qwen-plus", "qwen-turbo"],
-  "transformer": {
-    "use": ["qwen-auth", "reasoning", "OpenAI"]
-  }
-}
-```
-
-### ModelScope
-
-```json
-{
-  "name": "modelscope",
-  "api_base_url": "https://api-inference.modelscope.cn/v1/chat/completions",
-  "api_key": "",
-  "models": [
-    "Qwen/Qwen3-Coder-480B-A35B-Instruct",
-    "Qwen/Qwen3-235B-A22B-Thinking-2507"
-  ],
-  "transformer": {
-    "use": [
-      ["maxtoken", { "max_tokens": 65536 }],
-      "enhancetool"
-    ],
-    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
-      "use": ["reasoning"]
-    }
-  }
-}
-```
-
-### DashScope（阿里云）
-
-```json
-{
-  "name": "dashscope",
-  "api_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-  "api_key": "your-api-key",
-  "models": ["qwen3-coder-plus"],
-  "transformer": {
-    "use": [
-      ["maxtoken", { "max_tokens": 65536 }],
-      "enhancetool"
-    ]
-  }
-}
-```
-
 ### OpenCode Zen
 
 `opencode-headers` 以 OpenCode CLI 的身份发送请求（会话、请求和项目请求头），并由它自己完成对 Zen 的上游调用。请在提供商级别、协议转换器之后使用它。
@@ -252,13 +196,12 @@ claude-subscription,claude-sonnet-4-6
 ## FIM 提供商
 
 FIM 使用**独立**端点（`POST /v1/fim/completions`）与专用 `fim.*` 转换器。建议在
-聊天提供商旁再写一条 FIM 条目（可共用 API key）。Codestral 与本地 Qwen（LM Studio）
+聊天提供商旁再写一条 FIM 条目（可共用 API key）。Codestral 与 DeepSeek
 完整步骤见 [FIM Completions API](/docs/server/api/fim-completions-api)。
 
 | 转换器 | 典型上游 | 说明 |
 |--------|----------|------|
 | `fim.mistral` | Codestral `/v1/fim/completions` | 入站为 mistral 时同族请求/响应透传 |
-| `fim.qwen` | LM Studio 或 DashScope `/v1/completions` + FIM tokens | 跨族：响应编码回**入站**线格式（v1 → Codestral 形态） |
 | `fim.deepseek` | DeepSeek `/beta/completions` | 跨族：同样编码回入站线格式 |
 
 客户端响应跟随入站 kind，而不是永远固定为 Codestral 形态。

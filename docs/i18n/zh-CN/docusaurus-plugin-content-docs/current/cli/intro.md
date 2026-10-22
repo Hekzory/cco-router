@@ -19,7 +19,6 @@ title: 开始使用
 - **自定义路由函数**: 编写 JavaScript 定义自己的路由逻辑
 - **转换器系统**: 无缝适配不同提供商之间的 API 差异
 - **代理系统**: 可扩展的插件架构，实现自定义功能
-- **Web UI**: 内置管理界面，方便配置
 - **CLI 集成**: 与现有的 Claude Code 工作流无缝集成
 
 ## 快速开始
@@ -55,17 +54,12 @@ docker restart ccr    # 重启路由器
 docker logs -f ccr    # 查看日志
 ```
 
-## Web UI
-
-在浏览器中访问 `http://localhost:3456/ui/` 管理配置和监控服务。
-
 ## 架构
 
 Claude Code Router 由四个主要组件组成：
 
 - **Server** (`@caeliq/ccr-server`): 处理 API 路由和转换的核心服务器
 - **Shared** (`@caeliq/ccr-shared`): 共享常量和工具
-- **UI** (`@caeliq/ccr-ui`): Web 管理界面（React + Vite）
 
 ## 下一步
 

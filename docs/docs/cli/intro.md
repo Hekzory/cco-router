@@ -27,7 +27,6 @@ The router will be available at `http://localhost:3456`. Set `"HOST": "0.0.0.0"`
 Before using Claude Code Router, you need to configure your providers. You can either:
 
 1. **Edit configuration file directly**: Edit `~/.claude-code-router/config.json` (mounted into the container)
-2. **Use Web UI**: Open `http://localhost:3456/ui/` to configure visually
 
 After making configuration changes, restart the service:
 
@@ -55,10 +54,6 @@ docker stop ccr       # Stop the router
 docker restart ccr    # Restart the router
 docker logs -f ccr    # View logs
 ```
-
-## Web UI
-
-Open `http://localhost:3456/ui/` in your browser to manage configuration and monitor the service.
 
 ## Configuration File
 

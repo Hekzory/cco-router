@@ -187,22 +187,6 @@ Routes through Google's Antigravity gateway with OAuth via `ccr antigravity-auth
 
 Full option reference: [Transformers → gemini](/docs/server/config/transformers#options-cachedcontent-and-thoughtsignaturefallback). See also [CLI auth commands](/docs/cli/commands/auth).
 
-### Qwen Chat
-
-Requires JWT authentication via `ccr qwen-auth`.
-
-```json
-{
-  "name": "qwen",
-  "api_base_url": "https://qwen.aikit.club/v1/chat/completions",
-  "api_key": "qwen-placeholder",
-  "models": ["qwen-max", "qwen-plus", "qwen-turbo"],
-  "transformer": {
-    "use": ["qwen-auth", "reasoning", "OpenAI"]
-  }
-}
-```
-
 ### OpenCode Zen
 
 `opencode-headers` presents requests as the OpenCode CLI (session, request and
@@ -272,12 +256,11 @@ claude-subscription,claude-sonnet-4-6
 
 ## FIM providers
 
-FIM uses a **separate** endpoint (`POST /v1/fim/completions`) and dedicated `fim.*` transformers. Prefer a second provider entry next to your chat provider (same API key). Full walkthroughs for **Codestral** and **local Qwen via LM Studio**: [FIM Completions API](/docs/server/api/fim-completions-api).
+FIM uses a **separate** endpoint (`POST /v1/fim/completions`) and dedicated `fim.*` transformers. Prefer a second provider entry next to your chat provider (same API key). Full walkthroughs for **Codestral** and **DeepSeek**: [FIM Completions API](/docs/server/api/fim-completions-api).
 
 | Transformer | Typical upstream | Notes |
 |-------------|------------------|-------|
 | `fim.mistral` | Codestral `/v1/fim/completions` | Same-kind request/response passthrough when inbound is mistral |
-| `fim.qwen` | LM Studio or DashScope `/v1/completions` + FIM tokens | Cross-family: response encoded to **inbound** wire (v1 → Codestral shape) |
 | `fim.deepseek` | DeepSeek `/beta/completions` | Cross-family: same inbound-wire encode |
 
 Client response follows inbound kind, not a forever-fixed Codestral shape.
@@ -287,7 +270,6 @@ Client response follows inbound kind, not a forever-fixed Codestral shape.
 - **Standard API providers** usually use a normal API key in `api_key`
 - **Codex** can use either OAuth (`ccr codex-auth`) or a PAT in `api_key`
 - **Claude subscription** uses OAuth tokens managed by `ccr claude-auth`; `api_key` is just a placeholder marker
-- **Qwen** uses a JWT managed by `ccr qwen-auth`
 
 ## Related Docs
 

@@ -396,12 +396,11 @@ Gemini 3（以及 Antigravity）会在每个 `functionCall` part 上附带不透
 | `Fim` | 协议所有者（客户端路由）— 不列入 `transformer.use` |
 | `fim.mistral` | Codestral/Mistral FIM URL + 鉴权；同族 body 透传 |
 | `fim.deepseek` | DeepSeek beta completions FIM |
-| `fim.qwen` | Qwen completions FIM（LM Studio / DashScope） |
 
 出站请求编码因 `fim.*` 而异。响应编码为**入站**客户端线格式（v1：Codestral/Mistral）。
 同族路径透传响应 body。
 
-**Codestral** 与 **LM Studio Qwen** 逐步配置：
+**Codestral** 与 **DeepSeek** 逐步配置：
 [FIM Completions API](/docs/server/api/fim-completions-api)。
 
 不要在同一提供商上将聊天转换器（`mistral`、`deepseek` 等）与 `fim.*` 叠加。

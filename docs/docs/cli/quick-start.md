@@ -48,7 +48,6 @@ After editing the config, restart the service:
 docker restart ccr
 ```
 
-You can also use the Web UI at `http://localhost:3456/ui/` to configure providers visually.
 
 ## 3. Use Claude Code
 
@@ -64,7 +63,7 @@ Your requests will be routed through Claude Code Router to your configured provi
 
 ## Restart After Configuration Changes
 
-If you modify the configuration file or make changes through the Web UI, restart the service:
+If you modify the configuration file, restart the service:
 
 ```bash
 docker restart ccr

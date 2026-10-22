@@ -22,7 +22,7 @@ export interface TokenizerConfig {
   /** For tiktoken: encoding name (e.g., 'cl100k_base', 'p50k_base') */
   encoding?: string;
 
-  /** For huggingface: model ID (e.g., 'Qwen/Qwen2.5-Coder-32B-Instruct') */
+  /** For huggingface: model ID (e.g., 'meta-llama/Llama-3.1-8B-Instruct') */
   model?: string;
 
   /** For API-based tokenizers: complete API URL (e.g., 'https://api.example.com/v1/tokenize') */

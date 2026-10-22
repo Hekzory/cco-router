@@ -64,8 +64,6 @@ curl -H "x-api-key: your-api-key" http://localhost:3456/api/config
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/restart` | POST | Restart service |
-| `/ui` | GET | Web management interface |
-| `/ui/` | GET | Web management interface (redirect) |
 
 ## Authentication
 

@@ -81,7 +81,7 @@ tags: [changelog, fork, features]
 所有功能都有专门的集成指南文档：
 
 - [Codex 集成](/docs/server/guides/codex)
-- [Qwen Chat 集成](/docs/server/guides/qwen)
+- [Qwen Chat 集成](https://github.com/Hekzory/cco-router/blob/v3.0.1/docs/docs/server/guides/qwen.md)
 - [Chrome 内置模型](https://github.com/Hekzory/cco-router/blob/v3.0.0/docs/docs/server/guides/chrome-on-device.md)
 - [DeepSeek 推理重放](/docs/server/guides/deepseek-reasoning)
 - [模型发现](/docs/server/guides/model-discovery)

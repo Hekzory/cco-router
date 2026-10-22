@@ -299,7 +299,6 @@ export { getValidAccessToken as getClaudeAccessToken } from "./utils/claude-auth
 export {
   getValidAccessToken as getCodexAccessToken,
 } from "./utils/codex-auth";
-export { getValidAccessToken as getQwenAccessToken } from "./utils/qwen-auth";
 export {
   matchClientProtocol,
   isRoutedLlmPost,

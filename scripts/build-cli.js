@@ -11,7 +11,6 @@ try {
   const sharedDir = path.join(rootDir, 'packages/shared');
   const cliDir = path.join(rootDir, 'packages/cli');
   const serverDir = path.join(rootDir, 'packages/server');
-  const uiDir = path.join(rootDir, 'packages/ui');
 
   // Step 0: Ensure shared package is built first
   console.log('Ensuring shared package is built...');
@@ -31,34 +30,26 @@ try {
     cwd: rootDir
   });
 
-  // Step 2: Build UI package
-  console.log('Building UI package...');
-  execSync('pnpm build', {
-    stdio: 'inherit',
-    cwd: uiDir
-  });
-
-  // Step 3: Create CLI dist directory
+  // Step 2: Recreate CLI dist directory
   const cliDistDir = path.join(cliDir, 'dist');
-  if (!fs.existsSync(cliDistDir)) {
-    fs.mkdirSync(cliDistDir, { recursive: true });
-  }
+  fs.rmSync(cliDistDir, { recursive: true, force: true });
+  fs.mkdirSync(cliDistDir, { recursive: true });
 
   // Prefer package-local bins (and server's esbuild) over a missing/global PATH.
   const cliLocalBin = path.join(cliDir, 'node_modules', '.bin');
   const serverLocalBin = path.join(serverDir, 'node_modules', '.bin');
   const pathEnv = `${cliLocalBin}${path.delimiter}${serverLocalBin}${path.delimiter}${process.env.PATH || ''}`;
 
-  // Step 4: Build the CLI application
+  // Step 3: Build the CLI application
   console.log('Building CLI application...');
   // --target matches the package engines floor (>=22.19.0).
-  execSync('esbuild src/cli.ts --bundle --platform=node --target=node22 --minify --tree-shaking=true --external:ai --external:@ai-sdk/* --external:zod --outfile=dist/cli.js', {
+  execSync('esbuild src/cli.ts --bundle --platform=node --target=node22 --minify --tree-shaking=true --outfile=dist/cli.js', {
     stdio: 'inherit',
     cwd: cliDir,
     env: { ...process.env, PATH: pathEnv },
   });
 
-  // Step 5: Copy tiktoken WASM file from server dist to CLI dist
+  // Step 4: Copy tiktoken WASM file from server dist to CLI dist
   console.log('Copying tiktoken_bg.wasm from server to CLI dist...');
   const tiktokenSource = path.join(serverDir, 'dist/tiktoken_bg.wasm');
   const tiktokenDest = path.join(cliDistDir, 'tiktoken_bg.wasm');
@@ -70,19 +61,7 @@ try {
     console.warn('⚠ Warning: tiktoken_bg.wasm not found in server dist, skipping...');
   }
 
-  // Step 6: Copy UI index.html from UI dist to CLI dist
-  console.log('Copying index.html from UI to CLI dist...');
-  const uiSource = path.join(uiDir, 'dist/index.html');
-  const uiDest = path.join(cliDistDir, 'index.html');
-
-  if (fs.existsSync(uiSource)) {
-    fs.copyFileSync(uiSource, uiDest);
-    console.log('✓ index.html copied successfully!');
-  } else {
-    console.warn('⚠ Warning: index.html not found in UI dist, skipping...');
-  }
-
-  // Step 7: Copy CLI dist to project root
+  // Step 5: Copy CLI dist to project root
   console.log('\nCopying CLI dist to project root...');
   const rootDistDir = path.join(rootDir, 'dist');
 

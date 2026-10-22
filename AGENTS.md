@@ -9,7 +9,6 @@ Claude Code Router is a tool that routes Claude Code requests to different LLM p
 - **cli** (`@caeliq/claude-code-router`): Command-line tool providing the `ccr` command
 - **server** (`@caeliq/ccr-server`): Core server handling API routing and transformations
 - **shared** (`@caeliq/ccr-shared`): Shared constants, utilities, and preset management
-- **ui** (`@caeliq/ccr-ui`): Web management interface (React + Vite)
 - **core** (`@caeliq/llms`): Universal LLM API transformation / routing framework
 
 ### Core Objectives
@@ -21,7 +20,7 @@ Claude Code Router is a tool that routes Claude Code requests to different LLM p
 The fastest way to start and verify the build is using Docker Compose:
 1. **Launch with Docker**: `cd packages/server && docker compose up --build -d`
 2. **Setup configuration**: `ccr preset install <source>` or manually edit the configuration file.
-3. **Verify**: Use `ccr code` to execute a command or open the UI via `ccr ui`.
+3. **Verify**: Use `ccr code` to execute a command.
 
 *Alternative (Local Development)*: If you prefer to run locally without Docker, run `pnpm install` first, then use the `pnpm dev:*` commands.
 
@@ -65,14 +64,12 @@ pnpm build
 ```bash
 pnpm build:cli      # Build CLI
 pnpm build:server   # Build Server
-pnpm build:ui       # Build UI
 ```
 
 #### Development mode
 ```bash
 pnpm dev:cli        # Develop CLI (tsx)
 pnpm dev:server     # Develop Server (tsx)
-pnpm dev:ui         # Develop UI (Vite)
 ```
 
 ### Verification
@@ -169,7 +166,7 @@ There are **two version lines**:
 
 | Line | Current role | Packages |
 |---|---|---|
-| **Product** (`2.0.x`) | CLI / product release; git tag `v2.0.x` matches this | root, `@caeliq/claude-code-router` (cli), `@caeliq/ccr-shared`, `@caeliq/ccr-server`, `@caeliq/ccr-ui` |
+| **Product** (`3.0.x`) | CLI / product release; git tag `v3.0.x` matches this | root, `@caeliq/claude-code-router` (cli), `@caeliq/ccr-shared`, `@caeliq/ccr-server` |
 | **Core** (`1.0.x`) | Published as `@caeliq/llms`; independent semver | `packages/core` only |
 
 **Always bump together (keep product versions identical):**
@@ -177,13 +174,12 @@ There are **two version lines**:
 2. `packages/cli/package.json` → `@caeliq/claude-code-router`
 3. `packages/shared/package.json` → `@caeliq/ccr-shared` (release script publishes shared every run; reusing a published version fails)
 4. `packages/server/package.json` → `@caeliq/ccr-server` (not published to npm; ships inside the CLI bundle, but version stays in sync)
-5. `packages/ui/package.json` → `@caeliq/ccr-ui`
 
 **Bump when core changed (usual for any release that touches `packages/core`):**
-6. `packages/core/package.json` → `@caeliq/llms` (own `1.0.x` line; bump patch/minor independently of product)
+5. `packages/core/package.json` → `@caeliq/llms` (own `1.0.x` line; bump patch/minor independently of product)
 
 **Docs that must reflect the new versions:**
-7. `docs/PUBLISHING.md` — update the published-version table at the top, and any example `vX.Y.Z` / `git tag` snippets so they match the new CLI version
+6. `docs/PUBLISHING.md` — update the published-version table at the top, and any example `vX.Y.Z` / `git tag` snippets so they match the new CLI version
 
 **Do not change for a routine bump:**
 - `docs/package.json` (`0.0.0`)
@@ -209,13 +205,12 @@ The same rule applies when bumping core's independent `1.0.x` line by its own mi
 2. Apply the requested bump (default: product patch +1; core patch +1 if core changed or if prior releases always shipped both).
 3. Update `docs/PUBLISHING.md` to match.
 4. For minor bumps, suggest `/package-review`; for major bumps, run it before continuing.
-5. Verify product versions match across root/cli/shared/server/ui, and confirm core is the intended `1.0.x`:
+5. Verify product versions match across root/cli/shared/server, and confirm core is the intended `1.0.x`:
    ```bash
    node -p "require('./package.json').version"
    node -p "require('./packages/cli/package.json').version"
    node -p "require('./packages/shared/package.json').version"
    node -p "require('./packages/server/package.json').version"
-   node -p "require('./packages/ui/package.json').version"
    node -p "require('./packages/core/package.json').version"
    ```
 6. Commit message style from history: `chore: bump packages to X.Y.Z / A.B.C for …` or include the bump in the feature commit (`… (vX.Y.Z)` / `Bump packages to X.Y.Z / @caeliq/llms@A.B.C`).
@@ -361,11 +356,9 @@ ccr code          # Execute claude command
 ccr model         # Interactive model selection and configuration
 ccr preset        # Manage presets (export, install, list, info, delete)
 ccr activate      # Output shell environment variables (for integration)
-ccr ui            # Open Web UI
 ccr codex-auth    # Authenticate with Codex API via OAuth
 ccr codex-config  # Publish CCR models to Codex (config.toml + model catalog)
 ccr claude-auth   # Authenticate with Claude Pro/Max subscription via OAuth
-ccr qwen-auth     # Authenticate with Qwen Chat (JWT from localStorage)
 ccr antigravity-auth  # Authenticate with Google Antigravity via OAuth
 ```
 
@@ -465,24 +458,21 @@ Key files:
 ```
 cli → server → shared
 server → @caeliq/llms (core routing and transformation logic)
-ui (standalone frontend application)
 ```
 
 ## Development Notes
 
 1. **Node.js version**: Floor is **>= 22.19.0**, declared in `engines.node` of every
-   workspace package (root, core, cli, shared, server, ui, docs) — keep them identical.
-   The floor is set by `undici` (`>=22.19.0`). Build-only dependencies can ask for
-   more (`react-router@8` wants `>=22.22.0`); the UI ships as prebuilt HTML.
+   workspace package (root, core, cli, shared, server, docs) — keep them identical.
+   The floor is set by `undici` (`>=22.19.0`).
    Runtime pins are separate and track the newest Node 22 LTS patch (`22.23.2` in the
    Dockerfile, `node-version: "22"` in CI). Bump the pin freely; only raise the floor
    when a runtime dependency actually demands it. esbuild `--target=node22` in all four
    build scripts must stay in sync with the floor.
 2. **Package manager**: Uses pnpm (monorepo depends on workspace protocol)
-3. **TypeScript**: All packages use TypeScript, but UI package is ESM module
+3. **TypeScript**: All packages use TypeScript
 4. **Build tools**:
    - cli/server/shared: esbuild
-   - ui: Vite + TypeScript
 5. **@caeliq/llms**: In-monorepo core package (`packages/core`) providing the server framework and transformer functionality; published independently to npm. Type declarations are generated into `packages/core/dist/*.d.ts` (barrel `dist/index.d.ts`) during the core build; `packages/server` imports them via the `@caeliq/llms` package entry (no manual `packages/server/src/types.d.ts` shim).
 6. **Code comments**: All comments in code MUST be written in English
 7. **Documentation**: When implementing new features, add documentation to the docs project instead of creating standalone md files
