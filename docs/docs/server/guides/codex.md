@@ -183,8 +183,10 @@ adds or retires models.
   only the opening instruction prefix folds into `instructions`. Classic routes
   reject interleaved system messages instead of silently dropping or hoisting
   them. User/tool/assistant data is never promoted by matching text tags; missing
-  source provenance cannot be reconstructed by the router. The Lite shape follows
-  the official client; acceptance by a particular subscription needs a live check.
+  source provenance cannot be reconstructed by the router. Verified live on
+  Astra/Sol on 2026-10-22: interleaved reports and tool results, minimal Read
+  arguments, and a streamed Agent call with only its required prompt. No tools
+  were executed; these probes do not establish the cause of earlier hangs.
 - **Optional tool arguments** stay optional: converted function tools default to
   `strict: false`, including Edit; an explicit strict flag is retained. Required
   fields are not rewritten and no null placeholders are injected. A model can

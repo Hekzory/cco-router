@@ -1,6 +1,6 @@
 {
   "name": "@caeliq/claude-code-router",
-  "version": "2.1.16-hekzory.1",
+  "version": "2.1.16-hekzory.2",
   "description": "Claude Code Router with Hekzory's Codex interoperability fixes",
   "repository": {
     "type": "git",
