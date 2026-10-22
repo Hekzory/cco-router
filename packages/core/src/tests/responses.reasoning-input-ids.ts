@@ -301,6 +301,16 @@ function testClientOutputStillLabelsSummaryOnlyReasoning() {
 }
 
 
+async function testChatCacheKeySurvivesInboundNormalization() {
+  const chat = new OpenAITransformer();
+  const unified = await chat.transformRequestOut({ model: MODEL, prompt_cache_key: "client-cache-affinity", messages: [{ role: "user", content: "hi" }] });
+  const out: any = await new OpenAIResponsesTransformer().transformRequestIn(unified, provider as any, chatContext("cache-key") as any);
+  assert.equal(out.prompt_cache_key, "client-cache-affinity");
+  for (const key of [42, {}, "", " "]) {
+    await assert.rejects(() => chat.transformRequestOut({ model: MODEL, prompt_cache_key: key, messages: [{ role: "user", content: "hi" }] }), /prompt_cache_key/);
+  }
+}
+
 function testGeneratedReasoningIdsCannotCollide() {
   const seed = "cipher-collision";
   const id = `rs_${createHash("sha256").update(seed).digest("hex").slice(0, 24)}`;
@@ -324,6 +334,7 @@ function testGeneratedReasoningIdsCannotCollide() {
 }
 
 async function main() {
+  await testChatCacheKeySurvivesInboundNormalization();
   testGeneratedReasoningIdsCannotCollide();
   await testChatFinalTurnReasoningTextIsSummaryOnly();
   await testChatToolTurnCacheMissIsSummaryOnly();
