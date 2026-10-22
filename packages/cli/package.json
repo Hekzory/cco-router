@@ -1,7 +1,13 @@
 {
   "name": "@caeliq/claude-code-router",
-  "version": "2.1.15",
-  "description": "CLI for Claude Code Router",
+  "version": "2.1.16-hekzory.1",
+  "description": "Claude Code Router with Hekzory's Codex interoperability fixes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hekzory/claude-code-router.git",
+    "directory": "packages/cli"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
   "bin": {
     "ccr": "dist/cli.js"
   },

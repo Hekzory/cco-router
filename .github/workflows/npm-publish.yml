@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.repository == 'oakimov/claude-code-router'
     name: Build and publish to npm
     runs-on: ubuntu-latest
     timeout-minutes: 30

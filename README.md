@@ -1,3 +1,7 @@
+# Hekzory's Codex fixes
+
+Small patch set on [oakimov/claude-code-router v2.1.15](https://github.com/oakimov/claude-code-router/tree/v2.1.15), including upstream reasoning replay fixes. Built CLI packages ship in [GitHub Releases](https://github.com/Hekzory/claude-code-router/releases); no npm or GitHub Packages token is needed. See [publishing](docs/PUBLISHING.md) for checks and installation.
+
 ![Claude Code Router — adaptive model routing, tool use, and thinking](blog/images/claude-code-router-img.png)
 
 [![](https://img.shields.io/github/license/musistudio/claude-code-router)](https://github.com/musistudio/claude-code-router/blob/main/LICENSE)

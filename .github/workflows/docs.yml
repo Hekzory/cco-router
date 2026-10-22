@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'oakimov/claude-code-router'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

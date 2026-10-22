@@ -219,6 +219,20 @@ Responses `input` / tools ↔ Unified on the client legs, and rebuilds Responses
 wire (including encrypted reasoning items) when used as provider egress.
 Always pair Codex destinations as `"use": ["openai-responses", "codex"]`.
 
+For Chat Completions → Responses conversations, replay the complete Chat
+history and send a stable conversation header such as `x-session-id`. CCR
+requests encrypted reasoning from the provider and retains it in a bounded,
+in-memory replay cache for both text answers and tool turns. A restart or cache
+expiry loses that opaque state; reasoning text without a provider id or
+ciphertext is then sent as an id-less summary. Text summaries do not reconstruct
+the provider's encrypted reasoning.
+
+Chat inbound preserves a non-empty string `prompt_cache_key`. Without a session
+header, that key also separates encrypted-reasoning replay namespaces. Provider
+middleware may adapt it to the destination's native affinity contract. Verify
+actual provider cache reads with `usage.prompt_tokens_details.cached_tokens`;
+a stable key or intact prefix alone does not prove a cache hit.
+
 ### anthropic (config examples)
 
 Some docs/examples still show a top-level `transformers` entry named
