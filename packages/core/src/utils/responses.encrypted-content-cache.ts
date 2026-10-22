@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import { LLMProvider, UnifiedChatRequest, UnifiedMessage } from "@/types/llm";
 import { TransformerContext } from "@/types/transformer";
 import { responsesEncryptedContentFrom } from "./openai.responses.util";
+import { sanitizeResponsesCallId } from "./toolCallId";
 
 type ToolCallLike = NonNullable<UnifiedMessage["tool_calls"]>[number];
 
@@ -13,10 +14,20 @@ type MessageLike = Pick<
 };
 
 export type EncryptedReasoningPayload = {
-  encrypted_content: string;
+  encrypted_content?: string;
   content?: string;
   id?: string;
+  output?: any[];
+  visibleSignature?: string;
 };
+
+// Request-local associations, never trusted from client-supplied JSON fields.
+const outputByMessage = new WeakMap<object, any[]>();
+
+export function replayedResponsesOutput(message: object): any[] | undefined {
+  const output = outputByMessage.get(message);
+  return output ? structuredClone(output) : undefined;
+}
 
 type RequestContextState = {
   enabled: true;
@@ -27,8 +38,10 @@ type RequestContextState = {
 type CacheEntry = {
   payload: EncryptedReasoningPayload;
   createdAt: number;
+  bytes: number;
 };
 
+const CACHE_MAX_BYTES = 32 * 1024 * 1024;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 4096;
 const STREAM_MAX_ITEMS = 256;
@@ -52,6 +65,8 @@ type RecordedStreamItem = {
   summaryText?: string;
   encrypted_content?: string;
   messageText?: string;
+  raw?: Record<string, any>;
+  rawBytes?: number;
 };
 
 export type EncryptedReasoningStreamRecorder = {
@@ -199,8 +214,15 @@ export function createEncryptedReasoningStreamRecorder(): EncryptedReasoningStre
   };
 
   const mergeItem = (event: any, item: any) => {
+    if (!streamItemType(item?.type)) { discard(); return; }
     const entry = getEntry(event, item);
     if (!entry || discarded) return;
+    const raw = { ...entry.raw, ...item };
+    const rawBytes = Buffer.byteLength(JSON.stringify(raw), "utf8");
+    bytesUsed += rawBytes - (entry.rawBytes || 0);
+    if (bytesUsed > STREAM_MAX_BYTES) { discard(); return; }
+    entry.raw = structuredClone(raw);
+    entry.rawBytes = rawBytes;
     setString(entry, "id", item?.id);
     setString(entry, "call_id", item?.call_id);
     setString(entry, "name", item?.name);
@@ -221,6 +243,13 @@ export function createEncryptedReasoningStreamRecorder(): EncryptedReasoningStre
       event.type === "response.output_item.done"
     ) {
       mergeItem(event, event.item);
+      return;
+    }
+
+    if (event.type === "response.output_text.delta" || event.type === "response.output_text.done") {
+      const entry = getEntry(event, undefined, "message");
+      if (entry) setString(entry, "messageText", event.delta ?? event.text,
+        event.type === "response.output_text.delta");
       return;
     }
 
@@ -273,9 +302,10 @@ export function createEncryptedReasoningStreamRecorder(): EncryptedReasoningStre
       .map((entry) => {
         if (entry.type === "reasoning") {
           return {
+            ...entry.raw,
             type: "reasoning",
             ...(entry.id ? { id: entry.id } : {}),
-            summary: entry.summaryText
+            summary: entry.raw?.summary?.length ? entry.raw.summary : entry.summaryText
               ? [{ type: "summary_text", text: entry.summaryText }]
               : [],
             ...(entry.encrypted_content
@@ -285,14 +315,17 @@ export function createEncryptedReasoningStreamRecorder(): EncryptedReasoningStre
         }
         if (entry.type === "message") {
           return {
+            ...entry.raw,
             type: "message",
+            role: "assistant",
             ...(entry.id ? { id: entry.id } : {}),
-            content: entry.messageText
+            content: entry.raw?.content?.length ? entry.raw.content : entry.messageText
               ? [{ type: "output_text", text: entry.messageText }]
               : [],
           };
         }
         return {
+          ...entry.raw,
           type: entry.type,
           ...(entry.id ? { id: entry.id } : {}),
           ...(entry.call_id ? { call_id: entry.call_id } : {}),
@@ -309,12 +342,26 @@ export function createEncryptedReasoningStreamRecorder(): EncryptedReasoningStre
 
 class EncryptedReasoningCache {
   private readonly cache = new Map<string, CacheEntry>();
+  private bytes = 0;
+  private evictions = 0;
+  private expirations = 0;
+
+  private remove(key: string): void {
+    this.bytes -= this.cache.get(key)?.bytes || 0;
+    this.cache.delete(key);
+  }
+
+  stats() {
+    // Aliases share payload objects; charged bytes intentionally overestimate memory.
+    return { aliases: this.cache.size, chargedBytes: this.bytes, evictions: this.evictions, expirations: this.expirations };
+  }
 
   get(key: string): EncryptedReasoningPayload | undefined {
     const entry = this.cache.get(key);
     if (!entry) return undefined;
     if (Date.now() - entry.createdAt > CACHE_TTL_MS) {
-      this.cache.delete(key);
+      this.remove(key);
+      this.expirations++;
       return undefined;
     }
     this.cache.delete(key);
@@ -322,27 +369,27 @@ class EncryptedReasoningCache {
     return entry.payload;
   }
 
-  put(key: string, payload: EncryptedReasoningPayload): void {
-    if (!payload?.encrypted_content) return;
-    this.cache.delete(key);
-    this.cache.set(key, {
-      payload,
-      createdAt: Date.now(),
-    });
+  put(key: string, payload: EncryptedReasoningPayload, bytes: number): void {
+    if (!payload?.encrypted_content && !payload?.output) return;
+    if (bytes > STREAM_MAX_BYTES) return;
+    this.remove(key);
+    this.cache.set(key, { payload, createdAt: Date.now(), bytes });
+    this.bytes += bytes;
     this.prune();
   }
 
   private prune(): void {
     for (const [key, entry] of this.cache) {
       if (Date.now() - entry.createdAt > CACHE_TTL_MS) {
-        this.cache.delete(key);
+        this.remove(key);
+        this.expirations++;
       }
     }
-
-    while (this.cache.size > CACHE_MAX_ENTRIES) {
+    while (this.cache.size > CACHE_MAX_ENTRIES || this.bytes > CACHE_MAX_BYTES) {
       const oldestKey = this.cache.keys().next().value;
       if (!oldestKey) break;
-      this.cache.delete(oldestKey);
+      this.remove(oldestKey);
+      this.evictions++;
     }
   }
 }
@@ -360,7 +407,7 @@ function stableSort(value: unknown): unknown {
       .reduce<Record<string, unknown>>((result, key) => {
         result[key] = stableSort((value as Record<string, unknown>)[key]);
         return result;
-      }, {});
+      }, Object.create(null));
   }
 
   return value;
@@ -400,13 +447,14 @@ function normalizeContent(content: MessageLike["content"]): string {
 
 function normalizeToolCall(toolCall: ToolCallLike | Record<string, unknown>) {
   const functionData = (toolCall as any).function ?? {};
-  const argumentsValue =
-    typeof functionData.arguments === "string"
-      ? functionData.arguments
-      : stableStringify(functionData.arguments ?? "");
+  let argumentsValue = functionData.arguments ?? "";
+  if (typeof argumentsValue === "string") {
+    try { argumentsValue = JSON.parse(argumentsValue); } catch { /* Keep invalid JSON exact. */ }
+  }
+  argumentsValue = stableStringify(argumentsValue);
 
   return {
-    id: (toolCall as any).id || "",
+    id: sanitizeResponsesCallId((toolCall as any).id) || (toolCall as any).id || "",
     type: (toolCall as any).type || "function",
     function: {
       name: functionData.name || "",
@@ -467,7 +515,6 @@ function createConversationScope(namespace: string) {
   let count = 0;
   return {
     append(message: MessageLike): void {
-      if (message.role === "system") return;
       if (count++) digest.update(",");
       digest.update(stableStringify(canonicalScopeMessage(message)));
     },
@@ -509,8 +556,14 @@ function storeAssistantEncryptedReasoning(
 ): number {
   if (message.role !== "assistant") return 0;
 
-  const payload = getInlineEncryptedPayload(message);
+  const output = outputByMessage.get(message);
+  const inline = getInlineEncryptedPayload(message);
+  const payload = output
+    ? { ...inline, output, visibleSignature: messageSignature(message) }
+    : inline;
   if (!payload) return 0;
+  const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
+  if (bytes > STREAM_MAX_BYTES) return 0;
 
   const keys = [`scope:${scope}:signature:${messageSignature(message)}`];
   keys.push(
@@ -525,7 +578,7 @@ function storeAssistantEncryptedReasoning(
     )
   );
 
-  keys.forEach((key) => encryptedReasoningCache.put(key, payload));
+  keys.forEach((key) => encryptedReasoningCache.put(key, payload, bytes));
   return keys.length;
 }
 
@@ -542,14 +595,14 @@ function lookupEncryptedReasoning(
     const byId = encryptedReasoningCache.get(
       `scope:${scope}:tool_call:${toolCallId}`
     );
-    if (byId) return byId;
+    if (byId && (!byId.output || byId.visibleSignature === messageSignature(message))) return byId;
   }
 
   for (const toolCall of message.tool_calls || []) {
     const byToolSignature = encryptedReasoningCache.get(
       `scope:${scope}:tool_call_signature:${toolCallSignature(toolCall)}`
     );
-    if (byToolSignature) return byToolSignature;
+    if (byToolSignature && (!byToolSignature.output || byToolSignature.visibleSignature === messageSignature(message))) return byToolSignature;
   }
 
   return undefined;
@@ -559,6 +612,8 @@ function applyEncryptedPayload(
   message: MessageLike,
   payload: EncryptedReasoningPayload
 ): void {
+  if (payload.output) outputByMessage.set(message, payload.output);
+  if (!payload.encrypted_content) return;
   const existingThinking =
     message.thinking && typeof message.thinking === "object"
       ? (message.thinking as {
@@ -658,15 +713,17 @@ export function prepareEncryptedReasoningReplay(
       // Chat clients drop ciphertext on text answers too. Restore every
       // matching assistant turn so subsequent requests keep the provider's
       // reasoning state and the same cacheable prefix.
-      if (!getInlineEncryptedPayload(message)) {
-        const restored = lookupEncryptedReasoning(message, scope);
-        if (restored) {
-          applyEncryptedPayload(message, restored);
-          restoredFromCache++;
-        }
+      const inline = getInlineEncryptedPayload(message);
+      const restored = lookupEncryptedReasoning(message, scope);
+      const agreesWithInline = !inline || restored?.output?.some((item) =>
+        item.type === "reasoning" && item.encrypted_content === inline.encrypted_content &&
+        (!inline.id || item.id === inline.id));
+      if (restored && agreesWithInline) {
+        applyEncryptedPayload(message, restored);
+        restoredFromCache++;
+      } else {
+        storeAssistantEncryptedReasoning(message, scope);
       }
-
-      storeAssistantEncryptedReasoning(message, scope);
     }
 
     conversation.append(message);
@@ -711,12 +768,10 @@ export function recordEncryptedReasoningResponseMessage(
   message: MessageLike | null | undefined,
   context?: TransformerContext
 ): number {
-  if (!message) return 0;
-
   const state = getRequestContextState(context);
   if (!state) return 0;
-
-  return storeAssistantEncryptedReasoning(message, state.requestScope);
+  const storedAliases = message ? storeAssistantEncryptedReasoning(message, state.requestScope) : 0;
+  return storedAliases;
 }
 
 /**
@@ -726,13 +781,22 @@ export function recordEncryptedReasoningResponseMessage(
 export function assistantMessageFromResponsesOutput(
   output: any[] | undefined
 ): MessageLike | null {
-  if (!Array.isArray(output)) return null;
+  if (!Array.isArray(output) || !output.length || output.length > STREAM_MAX_ITEMS) return null;
+  // A partial projection cannot prove that the client replayed this same turn.
+  // Unknown hosted items/media decline caching rather than overwrite client data.
+  if (output.some((item) => !streamItemType(item?.type) ||
+    (item.type === "message" && ((item.role && item.role !== "assistant") || !Array.isArray(item.content) || item.content.some(
+      (part: any) => part?.type !== "output_text" || typeof part.text !== "string" || part.annotations?.length
+    ))) ||
+    ((item.type === "function_call" || item.type === "custom_tool_call") &&
+      (typeof (item.call_id || item.id) !== "string" || !item.name ||
+        typeof item.name !== "string" || typeof (item.type === "custom_tool_call" ? item.input : item.arguments) !== "string"))
+  )) return null;
+  if (Buffer.byteLength(JSON.stringify(output), "utf8") > STREAM_MAX_BYTES) return null;
 
-  const reasoningItem = output.find((item) => item?.type === "reasoning");
-  const encrypted_content = responsesEncryptedContentFrom(
-    reasoningItem?.encrypted_content
-  );
-  if (!encrypted_content) return null;
+  const reasoningItem = output.find((item) => item?.type === "reasoning" &&
+    responsesEncryptedContentFrom(item.encrypted_content));
+  const encrypted_content = responsesEncryptedContentFrom(reasoningItem?.encrypted_content);
 
   const summaryText = Array.isArray(reasoningItem?.summary)
     ? reasoningItem.summary
@@ -785,16 +849,26 @@ export function assistantMessageFromResponsesOutput(
     }
   }
 
-  return {
+  const message: MessageLike = {
     role: "assistant",
     content: messageTexts.join("") || null,
     tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-    thinking: {
+    ...(encrypted_content ? { thinking: {
       content: summaryText,
       encrypted_content,
       ...(typeof reasoningItem?.id === "string" && reasoningItem.id
         ? { id: reasoningItem.id }
         : {}),
-    },
+    } } : {}),
   };
+  const replay = structuredClone(output);
+  for (const item of replay) {
+    if (item.type === "function_call" || item.type === "custom_tool_call") {
+      item.call_id = sanitizeResponsesCallId(item.call_id || item.id) || item.call_id || item.id;
+    }
+    if (item.type === "reasoning" && !responsesEncryptedContentFrom(item.encrypted_content)) delete item.id;
+    if (item.type === "message") item.role = "assistant";
+  }
+  outputByMessage.set(message, replay);
+  return message;
 }

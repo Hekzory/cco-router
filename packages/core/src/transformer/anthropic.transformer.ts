@@ -463,7 +463,9 @@ export class AnthropicTransformer implements Transformer {
               (c: any) => c.type === "text" && c.text
             );
             if (textParts.length) {
-              assistantMessage.content = textParts.some(
+              // Keep block boundaries instead of inventing newlines between
+              // streamed message items; replay compares the original text.
+              assistantMessage.content = textParts.length > 1 || textParts.some(
                 (text: any) => text.cache_control
               )
                 ? textParts.map((text: any) => ({
