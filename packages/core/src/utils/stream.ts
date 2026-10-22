@@ -24,6 +24,8 @@ function logStreamError(
 export interface StreamContext {
   controller: ReadableStreamDefaultController;
   encoder: TextEncoder;
+  /** Stop after the current terminal event, without waiting for upstream EOF. */
+  stop?: () => void;
 }
 
 export type SSEEvent = ParsedSSEEvent;
@@ -125,7 +127,8 @@ export function createSSEStreamReader(
         return;
       }
 
-      const ctx: StreamContext = { controller, encoder };
+      let stopped = false;
+      const ctx: StreamContext = { controller, encoder, stop: () => { stopped = true; } };
       const parser = new IncrementalSSEParser();
       const decoder = new TextDecoder();
 
@@ -169,7 +172,7 @@ export function createSSEStreamReader(
         upstreamReader = reader;
 
         while (true) {
-          if (cancelled) break;
+          if (cancelled || stopped) break;
 
           const { done, value } = await reader.read();
           if (done) break;
@@ -177,7 +180,7 @@ export function createSSEStreamReader(
 
           const text = decoder.decode(value, { stream: true });
           for (const event of parser.push(text)) {
-            if (cancelled) break;
+            if (cancelled || stopped) break;
             try {
               handleEvent(event);
             } catch (error) {
@@ -189,7 +192,10 @@ export function createSSEStreamReader(
           }
         }
 
-        if (!cancelled) {
+        if (stopped && !cancelled) {
+          await reader.cancel("SSE terminal event").catch(() => undefined);
+        }
+        if (!cancelled && !stopped) {
           const tail = decoder.decode();
           for (const event of parser.push(tail)) {
             handleEvent(event);

@@ -1254,7 +1254,9 @@ export class AnthropicTransformer implements Transformer {
               // tapUpstreamSSEDebug so exact-wire and conversion paths share one tap.
 
               if (data === "[DONE]") {
-                continue;
+                safeClose();
+                await reader.cancel("Chat completion finished").catch(() => undefined);
+                break;
               }
 
               try {

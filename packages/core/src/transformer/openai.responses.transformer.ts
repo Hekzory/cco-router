@@ -897,6 +897,7 @@ export class OpenAIResponsesTransformer implements Transformer {
             if (dataStr === "[DONE]") {
               ctx.controller.enqueue(encodeSSEData("[DONE]", ctx.encoder));
               terminate();
+              ctx.stop?.();
               return;
             }
 
@@ -936,6 +937,7 @@ export class OpenAIResponsesTransformer implements Transformer {
                   )
                 );
                 ctx.controller.enqueue(encodeSSEData("[DONE]", ctx.encoder));
+                ctx.stop?.();
                 return;
               }
 
@@ -975,6 +977,7 @@ export class OpenAIResponsesTransformer implements Transformer {
                 }
                 ctx.controller.enqueue(encodeSSEData("[DONE]", ctx.encoder));
                 terminate(true);
+                ctx.stop?.();
               }
             } catch {
               encryptedRecorder?.discard();

@@ -237,6 +237,16 @@ You do **not** need `ccr codex-auth` when `api_key` already contains a valid PAT
 - **Web search** — Built-in web search via `{ type: "web_search" }`
 - **Image handling** — Vision support for image inputs
 
+## Stream completion
+
+A terminal Responses event (`completed`, `incomplete`, `failed`, or `error`)
+ends the converted stream and cancels its upstream reader without waiting for
+socket EOF. The non-stream collector follows the same boundary. Anthropic
+conversion closes on Chat `[DONE]`, after any usage trailer. Otherwise an open
+upstream connection can leave Bash/Agent tool calls waiting for `message_stop`
+even after generation is finished. This was reproduced with synthetic streams;
+it does not establish ongoing token consumption in an affected live session.
+
 ## Stream Bootstrap Buffering
 
 The ChatGPT backend can smuggle overload/quota rejections *inside* an
