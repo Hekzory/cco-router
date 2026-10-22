@@ -3,6 +3,7 @@ import { LLMProvider, UnifiedChatRequest, UnifiedMessage } from "@/types/llm";
 import { TransformerContext } from "@/types/transformer";
 import { responsesEncryptedContentFrom } from "./openai.responses.util";
 import { sanitizeResponsesCallId } from "./toolCallId";
+import { writeReplayDiagnostics } from "./responses-replay-diagnostics";
 
 type ToolCallLike = NonNullable<UnifiedMessage["tool_calls"]>[number];
 
@@ -706,6 +707,10 @@ export function prepareEncryptedReasoningReplay(
   );
   const conversation = createConversationScope(namespace);
   let restoredFromCache = 0;
+  let lookups = 0;
+  let restoredOutputItems = 0;
+  let restoredReasoningItems = 0;
+  let restoredRawArguments = 0;
 
   for (const message of request.messages as MessageLike[]) {
     if (message.role === "assistant") {
@@ -714,6 +719,7 @@ export function prepareEncryptedReasoningReplay(
       // matching assistant turn so subsequent requests keep the provider's
       // reasoning state and the same cacheable prefix.
       const inline = getInlineEncryptedPayload(message);
+      lookups++;
       const restored = lookupEncryptedReasoning(message, scope);
       const agreesWithInline = !inline || restored?.output?.some((item) =>
         item.type === "reasoning" && item.encrypted_content === inline.encrypted_content &&
@@ -721,6 +727,11 @@ export function prepareEncryptedReasoningReplay(
       if (restored && agreesWithInline) {
         applyEncryptedPayload(message, restored);
         restoredFromCache++;
+        restoredOutputItems += restored.output?.length || 0;
+        restoredReasoningItems += restored.output
+          ? restored.output.filter((item) => item.type === "reasoning").length
+          : restored.encrypted_content ? 1 : 0;
+        restoredRawArguments += restored.output?.filter((item) => item.type === "function_call").length || 0;
       } else {
         storeAssistantEncryptedReasoning(message, scope);
       }
@@ -749,6 +760,11 @@ export function prepareEncryptedReasoningReplay(
     } satisfies RequestContextState;
   }
 
+  writeReplayDiagnostics(context, {
+    phase: "lookup", lookups, hits: restoredFromCache, misses: lookups - restoredFromCache,
+    restoredOutputItems, restoredReasoningItems, restoredRawArguments,
+    ...encryptedReasoningCache.stats(),
+  });
   return { restoredFromCache, includeRequested: true };
 }
 
@@ -771,6 +787,10 @@ export function recordEncryptedReasoningResponseMessage(
   const state = getRequestContextState(context);
   if (!state) return 0;
   const storedAliases = message ? storeAssistantEncryptedReasoning(message, state.requestScope) : 0;
+  writeReplayDiagnostics(context, {
+    phase: "record", storedAliases, skipped: storedAliases === 0 ? 1 : 0,
+    ...encryptedReasoningCache.stats(),
+  });
   return storedAliases;
 }
 

@@ -239,6 +239,36 @@ You do **not** need `ccr codex-auth` when `api_key` already contains a valid PAT
 - **Web search** — Built-in web search via `{ type: "web_search" }`
 - **Image handling** — Vision support for image inputs
 
+## Cache diagnostics
+
+Claude Code's existing OTEL `claude_code.token.usage` reports `input`, `output`,
+`cacheRead` and `cacheCreation` by model. For prompt-cache coverage use
+`sum(cacheRead) / sum(input + cacheRead + cacheCreation)` over the same interval,
+not the fraction of requests with any cached tokens. CCR keeps forwarding these
+usage fields; it does not install a second exporter or change telemetry endpoints.
+
+Router-local replay is separate. Opt in with `"RESPONSES_REPLAY_DIAGNOSTICS": true`
+in the router config, then restart when idle. This does not enable debug/body/SSE
+logging and works with `LOG: false`. Set it to false and restart to stop recording.
+Files stay under `~/.claude-code-router/replay-diagnostics/`: `replay.jsonl` and
+one `replay.previous.jsonl`, each at most 2 MiB, mode `0600`, directory `0700`.
+Only timestamps, process ID and numeric counters are written:
+
+- `lookup`: assistant-turn lookups, hits/misses, restored output/reasoning items
+  and raw function-argument strings. Each request rechecks its history; these
+  count turn lookups, not unique turns or OpenAI cache hits.
+- `record`: stored aliases or a skipped write (unsupported state or size bound).
+  Failed/incomplete responses do not enter the cache. `aliases`/`chargedBytes` are current cache gauges;
+  `evictions`/`expirations` are process-lifetime alias counters.
+- `dropped`: process-lifetime diagnostics dropped by the bounded 64-record queue.
+  Writes are asynchronous and disk errors disable this writer until restart,
+  without failing inference. Records never contain prompts, tool names/arguments,
+  ciphertext, session IDs or account keys.
+
+No live improvement in prompt-cache coverage is implied by a replay hit. The
+cache is still process-local and cannot recover pre-restart history; OAuth
+account changes under the same provider placeholder require a router restart.
+
 ## Stream completion
 
 A terminal Responses event (`completed`, `incomplete`, `failed`, or `error`)
