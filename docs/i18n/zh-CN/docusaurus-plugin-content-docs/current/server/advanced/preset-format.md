@@ -47,7 +47,6 @@ Preset 是一个预定义的配置包，用于快速配置 Claude Code Router。
   "Providers": [...],
   "Router": {...},
   "transformers": [...],
-  "StatusLine": {...},
   "PROXY_URL": "...",
   "PORT": 8080,
 
@@ -196,34 +195,6 @@ Provider 配置数组，定义 LLM 服务提供商。
 | `path` | string | 自定义转换器路径（相对或绝对） |
 | `use` | array | 应用到哪些 Provider |
 | `options` | object | 转换器选项 |
-
-### StatusLine
-
-状态栏配置，自定义终端状态显示。
-
-```json
-{
-  "StatusLine": {
-    "default": {
-      "modules": [
-        {
-          "type": "text",
-          "text": "CCR",
-          "color": "cyan"
-        },
-        {
-          "type": "provider",
-          "showModel": true
-        },
-        {
-          "type": "script",
-          "scriptPath": "./scripts/status.js"
-        }
-      ]
-    }
-  }
-}
-```
 
 ### 其他配置字段
 
@@ -973,17 +944,7 @@ $VARIABLE_NAME
     {
       "path": "./transformers/custom.js"
     }
-  ],
-  "StatusLine": {
-    "default": {
-      "modules": [
-        {
-          "type": "script",
-          "scriptPath": "./scripts/status.js"
-        }
-      ]
-    }
-  }
+  ]
 }
 ```
 

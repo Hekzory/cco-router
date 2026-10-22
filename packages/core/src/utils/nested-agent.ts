@@ -101,7 +101,7 @@ export function firstSubstantiveUserText(request: unknown): string {
   return firstUserText(request);
 }
 
-const STATUSLINE_USER_RE =
+const HARNESS_STATUS_USER_RE =
   /Describe your most recent action in 3-5 words/i;
 
 function lastUserText(request: unknown): string {
@@ -114,9 +114,9 @@ function lastUserText(request: unknown): string {
   return "";
 }
 
-/** Statusline / spinner polls — must not supersede or become a cache baseline. */
-export function isStatuslinePollTurn(request: unknown): boolean {
-  return STATUSLINE_USER_RE.test(lastUserText(request));
+/** Auxiliary harness status / spinner polls — must not supersede or become a cache baseline. */
+export function isHarnessStatusPollTurn(request: unknown): boolean {
+  return HARNESS_STATUS_USER_RE.test(lastUserText(request));
 }
 
 const FORK_OPENING_RE =

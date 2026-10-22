@@ -48,7 +48,7 @@ import { applyRawAnthropicPromptCaching } from "../utils/cacheControl";
 import { resolveCachePrefixConversationId } from "../utils/cache-prefix-debug";
 import {
   firstSubstantiveUserText,
-  isStatuslinePollTurn,
+  isHarnessStatusPollTurn,
 } from "../utils/nested-agent";
 
 function isOpencodeProvider(provider: any): boolean {
@@ -1306,8 +1306,8 @@ function recordClientCachePrefix(
   body: any
 ): void {
   if (!req) return;
-  if (isStatuslinePollTurn(body || {})) {
-    // Statusline polls share the session id but are not a real turn. Committing
+  if (isHarnessStatusPollTurn(body || {})) {
+    // Harness status polls share the session id but are not a real turn. Committing
     // them as the baseline makes the next tool result look like a 25k-token miss.
     req._omitCachePrefix = true;
     return;

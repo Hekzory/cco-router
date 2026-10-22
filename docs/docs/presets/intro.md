@@ -364,7 +364,6 @@ These fields are directly merged into CCR's configuration. All fields supported 
 | `Providers` | array | Provider configuration array |
 | `Router` | object | Routing configuration |
 | `transformers` | array | Transformer configuration |
-| `StatusLine` | object | Status bar configuration |
 | `NON_INTERACTIVE_MODE` | boolean | Enable non-interactive mode (for CI/CD) |
 
 **CLI-Only Fields** (these fields only work in CLI mode and are not used by the server):
@@ -372,7 +371,7 @@ These fields are directly merged into CCR's configuration. All fields supported 
 | Field | Type | Description |
 |-------|------|-------------|
 | `noServer` | boolean | Skip local server startup and use provider's API directly |
-| `claudeCodeSettings` | object | Claude Code specific settings (env, statusLine, etc.) |
+| `claudeCodeSettings` | object | Claude Code specific settings (env, etc.) |
 
 Example:
 

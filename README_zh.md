@@ -432,14 +432,6 @@ CCR 会自动将 Claude Code 的 Anthropic 缓存意图转换为每个上游的�
 
 参见[实现计划与评审](tasks/caching-plan.md)了解提供商矩阵和验证范围。
 
-## Status Line（Beta）
-
-为了在运行时更好地监控 claude-code-router 的状态，v1.0.40 版本内置了 statusline 工具，您可以在 UI 中启用。
-![statusline-config.png](blog/images/statusline-config.png)
-
-效果如下：
-![statusline](blog/images/statusline.png)
-
 ## 🤖 GitHub Actions
 
 将 Claude Code Router 集成到您的 CI/CD 管道中。设置好 [Claude Code Actions](https://docs.anthropic.com/en/docs/claude-code/github-actions) 后，修改 `.github/workflows/claude.yaml` 以使用路由器：

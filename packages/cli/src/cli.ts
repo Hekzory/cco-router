@@ -16,7 +16,6 @@ import { spawn } from "child_process";
 import {getPresetDir, loadConfigFromManifest, PID_FILE, readPresetFile, REFERENCE_COUNT_FILE} from "@caeliq/ccr-shared";
 import fs, { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { parseStatusLineData, StatusLineInput } from "./utils/statusline";
 import {handlePresetCommand} from "./utils/preset";
 import { handleInstallCommand } from "./utils/installCommand";
 import { runCodexAuth } from "./utils/codex-cli-auth";
@@ -34,7 +33,6 @@ const KNOWN_COMMANDS = [
   "stop",
   "restart",
   "status",
-  "statusline",
   "code",
   "model",
   "preset",
@@ -61,7 +59,6 @@ Commands:
   stop          Stop server
   restart       Restart server
   status        Show server status
-  statusline    Integrated statusline
   code          Execute claude command
   model         Interactive model selection and configuration
                 Use ccr model get <provider> to test API access and list models
@@ -188,7 +185,6 @@ async function main() {
       const presetConfig: PresetConfig = {
         noServer: config.noServer,
         claudeCodeSettings: config.claudeCodeSettings,
-        StatusLine: config.StatusLine
       };
 
       if (shouldStartServer && !isRunning) {
@@ -207,7 +203,7 @@ async function main() {
         startProcess.unref();
 
         if (await waitForService()) {
-          executeCodeCommand(codeArgs, presetConfig, envOverrides, command);
+          executeCodeCommand(codeArgs, presetConfig, envOverrides);
         } else {
           console.error(
             "Service startup timeout, please manually run `ccr start` to start the service"
@@ -220,7 +216,7 @@ async function main() {
           console.error("Service is not running. Please start it first with `ccr start`");
           process.exit(1);
         }
-        executeCodeCommand(codeArgs, presetConfig, envOverrides, command);
+        executeCodeCommand(codeArgs, presetConfig, envOverrides);
       }
       return;
     } else {
@@ -259,31 +255,6 @@ async function main() {
     case "status":
       await showStatus();
       break;
-    case "statusline": {
-      // Read JSON input from stdin
-      let inputData = "";
-      process.stdin.setEncoding("utf-8");
-      process.stdin.on("readable", () => {
-        let chunk;
-        while ((chunk = process.stdin.read()) !== null) {
-          inputData += chunk;
-        }
-      });
-
-      process.stdin.on("end", async () => {
-        try {
-          const input: StatusLineInput = JSON.parse(inputData);
-          // Check if preset name is provided as argument
-          const presetName = process.argv[3];
-          const statusLine = await parseStatusLineData(input, presetName);
-          console.log(statusLine);
-        } catch (error) {
-          console.error("Error parsing status line data:", error);
-          process.exit(1);
-        }
-      });
-      break;
-    }
     case "model": {
       const modelSubcommand = process.argv[3];
 

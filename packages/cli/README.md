@@ -860,13 +860,6 @@ Please help me analyze this code snippet for potential optimizations...
 export CLAUDE_CODE_SUBAGENT_MODEL="openrouter,anthropic/claude-3.5-sonnet"
 ```
 
-## Status Line (Beta)
-To better monitor the status of claude-code-router at runtime, version v1.0.40 includes a built-in statusline tool, which you can enable in the UI.
-![statusline-config.png](/blog/images/statusline-config.png)
-
-The effect is as follows:
-![statusline](/blog/images/statusline.png)
-
 ## 🤖 GitHub Actions
 
 Integrate Claude Code Router into your CI/CD pipeline. After setting up [Claude Code Actions](https://docs.anthropic.com/en/docs/claude-code/github-actions), modify your `.github/workflows/claude.yaml` to use the router:

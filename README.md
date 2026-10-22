@@ -10,6 +10,8 @@ Other provider adapters remain inherited functionality. The documentation below 
 
 The next release removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted. Bundled Ollama, Volcengine and SiliconFlow examples are also removed; generic OpenAI-compatible routing remains available.
 
+The built-in Status Line, its UI editor and `ccr statusline` are also removed. Remove any manually configured `ccr statusline` command from Claude Code settings; the router no longer installs one.
+
 ## Inherited features
 
 - **Adaptive Model Routing**: Route requests by scenario, including background tasks, thinking, long context, web search, FIM completions, and image workflows.
@@ -451,13 +453,6 @@ CCR translates Claude Code's Anthropic cache intent into each upstream's native 
 Provider-incompatible cache fields are removed only after translation. Cache read/write usage reported upstream is converted back to Anthropic `cache_read_input_tokens` and `cache_creation_input_tokens` for Claude Code.
 
 See [the implementation plan and review](tasks/caching-plan.md) for the provider matrix and verification scope.
-
-## Status Line (Beta)
-To better monitor the status of claude-code-router at runtime, version v1.0.40 includes a built-in statusline tool, which you can enable in the UI.
-![statusline-config.png](blog/images/statusline-config.png)
-
-The effect is as follows:
-![statusline](blog/images/statusline.png)
 
 ## 🤖 GitHub Actions
 

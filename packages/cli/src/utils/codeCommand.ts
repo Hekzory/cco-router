@@ -13,20 +13,17 @@ export interface PresetConfig {
   noServer?: boolean;
   claudeCodeSettings?: {
     env?: Record<string, any>;
-    statusLine?: any;
     [key: string]: any;
   };
   provider?: string;
   router?: Record<string, any>;
-  StatusLine?: any;  // Preset's StatusLine configuration
   [key: string]: any;
 }
 
 export async function executeCodeCommand(
   args: string[] = [],
   presetConfig?: PresetConfig | null,
-  envOverrides?: Record<string, string>,
-  presetName?: string  // Preset name for statusline command
+  envOverrides?: Record<string, string>
 ) {
   // Set environment variables using shared function
   const config = await readConfigFile();
@@ -41,23 +38,6 @@ export async function executeCodeCommand(
   let settingsFlag: ClaudeSettingsFlag = {
     env: env as ClaudeSettingsFlag['env']
   };
-
-  // Add statusLine configuration
-  // Priority: preset.StatusLine > global config.StatusLine
-  const statusLineConfig = presetConfig?.StatusLine || config?.StatusLine;
-
-  if (statusLineConfig?.enabled) {
-    // If using preset, pass preset name to statusline command
-    const statuslineCommand = presetName
-      ? `ccr statusline ${presetName}`
-      : "ccr statusline";
-
-    settingsFlag.statusLine = {
-      type: "command",
-      command: statuslineCommand,
-      padding: 0,
-    }
-  }
 
   // Merge claudeCodeSettings from preset into settingsFlag
   if (presetConfig?.claudeCodeSettings) {

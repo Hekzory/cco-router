@@ -243,7 +243,7 @@ export function resolveOptions(
 
 /**
  * Template variable replacement
- * Supports #{variable} syntax (different from statusline's {{variable}} format)
+ * Supports #{variable} syntax
  */
 export function replaceTemplateVariables(
   template: any,
@@ -591,43 +591,6 @@ export function getAffectedFields(
 }
 
 /**
- * Process StatusLine configuration, convert relative scriptPath to absolute path
- * @param statusLineConfig StatusLine configuration
- * @param presetDir Preset directory path
- */
-function processStatusLineConfig(statusLineConfig: any, presetDir?: string): any {
-  if (!statusLineConfig || typeof statusLineConfig !== 'object') {
-    return statusLineConfig;
-  }
-
-  const result = { ...statusLineConfig };
-
-  // Process each theme's modules
-  for (const themeKey of Object.keys(result)) {
-    const theme = result[themeKey];
-    if (theme && typeof theme === 'object' && theme.modules) {
-      const modules = Array.isArray(theme.modules) ? theme.modules : [];
-      const processedModules = modules.map((module: any) => {
-        // If module has scriptPath and presetDir is provided, convert to absolute path
-        if (module.scriptPath && presetDir && !module.scriptPath.startsWith('/')) {
-          return {
-            ...module,
-            scriptPath: path.join(presetDir, module.scriptPath)
-          };
-        }
-        return module;
-      });
-      result[themeKey] = {
-        ...theme,
-        modules: processedModules
-      };
-    }
-  }
-
-  return result;
-}
-
-/**
  * Process transformers configuration, convert relative path to absolute path
  * @param transformersConfig Transformers configuration array
  * @param presetDir Preset directory path
@@ -658,7 +621,7 @@ function processTransformersConfig(transformersConfig: any[], presetDir?: string
  * Used when reading installed presets, applying user configuration values at runtime
  *
  * @param manifest Manifest object (contains original configuration and userValues)
- * @param presetDir Optional preset directory path (for resolving relative paths like scriptPath)
+ * @param presetDir Optional preset directory path (for resolving relative transformer paths)
  * @returns Applied configuration object
  */
 export function loadConfigFromManifest(manifest: ManifestFile, presetDir?: string): PresetConfigSection {
@@ -705,11 +668,6 @@ export function loadConfigFromManifest(manifest: ManifestFile, presetDir?: strin
   } else {
     // If no userValues, use original configuration directly
     config = presetFile.config;
-  }
-
-  // Process StatusLine configuration (convert relative scriptPath to absolute path)
-  if (config.StatusLine) {
-    config.StatusLine = processStatusLineConfig(config.StatusLine, presetDir);
   }
 
   // Process transformers configuration (convert relative path to absolute path)

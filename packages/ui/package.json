@@ -37,7 +37,6 @@
     "lucide-react": "^1.31.0",
     "monaco-editor": "^0.56.0",
     "react": "^19.2.8",
-    "react-colorful": "^5.8.1",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.2.8",

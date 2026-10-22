@@ -57,9 +57,4 @@ interface ClaudeSettingsFlag {
     CLAUDE_CODE_USE_BEDROCK?: undefined;
     [key: string]: any;
   };
-  statusLine?: {
-    type: string;
-    command: string;
-    padding: number;
-  };
 }

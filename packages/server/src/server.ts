@@ -431,7 +431,7 @@ export const createServer = async (config: any): Promise<any> => {
           const manifest = JSON.parse(content);
 
           // Extract metadata fields
-          const { Providers, Router, PORT, HOST, API_TIMEOUT_MS, PROXY_URL, LOG, LOG_LEVEL, LOG_REQUEST_BODY, LOG_REQUEST_BODY_PARTS, LOG_REQUEST_BODY_MAX_BYTES, StatusLine, NON_INTERACTIVE_MODE, ...metadata } = manifest;
+          const { Providers, Router, PORT, HOST, API_TIMEOUT_MS, PROXY_URL, LOG, LOG_LEVEL, LOG_REQUEST_BODY, LOG_REQUEST_BODY_PARTS, LOG_REQUEST_BODY_MAX_BYTES, NON_INTERACTIVE_MODE, ...metadata } = manifest;
 
           presets.push({
             id: dirName,  // Use directory name as unique identifier
