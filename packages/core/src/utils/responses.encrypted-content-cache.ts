@@ -472,21 +472,6 @@ function conversationScope(messages: MessageLike[], namespace: string): string {
   );
 }
 
-function assistantNeedsEncryptedReasoning(
-  message: MessageLike,
-  priorMessages: MessageLike[]
-): boolean {
-  if (message.tool_calls?.length) return true;
-
-  for (let i = priorMessages.length - 1; i >= 0; i--) {
-    const prior = priorMessages[i];
-    if (prior.role === "tool") return true;
-    if (prior.role === "user" || prior.role === "system") return false;
-  }
-
-  return false;
-}
-
 function getInlineEncryptedPayload(
   message: MessageLike
 ): EncryptedReasoningPayload | undefined {
@@ -663,19 +648,14 @@ export function prepareEncryptedReasoningReplay(
   for (const message of request.messages as MessageLike[]) {
     if (message.role === "assistant") {
       const scope = conversationScope(priorMessages, namespace);
-      const needsReplay = assistantNeedsEncryptedReasoning(
-        message,
-        priorMessages
-      );
-
-      if (needsReplay) {
-        const inline = getInlineEncryptedPayload(message);
-        if (!inline) {
-          const restored = lookupEncryptedReasoning(message, scope);
-          if (restored) {
-            applyEncryptedPayload(message, restored);
-            restoredFromCache++;
-          }
+      // Chat clients drop ciphertext on text answers too. Restore every
+      // matching assistant turn so subsequent requests keep the provider's
+      // reasoning state and the same cacheable prefix.
+      if (!getInlineEncryptedPayload(message)) {
+        const restored = lookupEncryptedReasoning(message, scope);
+        if (restored) {
+          applyEncryptedPayload(message, restored);
+          restoredFromCache++;
         }
       }
 

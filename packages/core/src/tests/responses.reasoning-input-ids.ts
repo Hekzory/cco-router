@@ -301,6 +301,38 @@ function testClientOutputStillLabelsSummaryOnlyReasoning() {
 }
 
 
+async function testChatTextTurnRestoresCiphertextAndStablePrefix() {
+  for (const stream of [false, true]) {
+    const transformer = new OpenAIResponsesTransformer();
+    const session = `chat-text-cipher-${stream}`;
+    const messages: any[] = [{ role: "user", content: "Compute 17 times 23." }];
+    const seed = chatContext(session);
+    const request = () => ({ model: MODEL, stream, messages: structuredClone(messages) });
+    await transformer.transformRequestIn(request(), provider as any, seed as any);
+    const output = [
+      { type: "reasoning", id: "rs_text_real", summary: [{ type: "summary_text", text: "Multiply." }], encrypted_content: CIPHER },
+      { type: "message", id: "msg_text", role: "assistant", content: [{ type: "output_text", text: "391" }] },
+    ];
+    const payload = { id: "resp_text", object: "response", status: "completed", output };
+    const upstream = new Response(stream
+      ? `data: ${JSON.stringify({ type: "response.completed", response: payload })}\n\n`
+      : JSON.stringify(payload), { headers: { "Content-Type": stream ? "text/event-stream" : "application/json" } });
+    await (await transformer.transformResponseOut(upstream, seed as any)).text();
+    // Replay the Chat client shape: ciphertext and the provider id are absent.
+    messages.push({ role: "assistant", content: "391", reasoning_content: "Multiply." });
+    messages.push({ role: "user", content: "Now add one." });
+    const short: any = await transformer.transformRequestIn(request(), provider as any, chatContext(session) as any);
+    assert.equal(reasoningItems(short)[0]?.encrypted_content, CIPHER, "text turns must restore provider ciphertext");
+    assert.equal(reasoningItems(short)[0]?.id, "rs_text_real");
+    messages.push({ role: "assistant", content: "392" }, { role: "user", content: "Continue." });
+    const long: any = await transformer.transformRequestIn(request(), provider as any, chatContext(session) as any);
+    assert.deepEqual(long.input.slice(0, short.input.length), short.input);
+    assert.equal(long.prompt_cache_key, short.prompt_cache_key);
+    const other: any = await transformer.transformRequestIn(request(), provider as any, chatContext(`${session}-other`) as any);
+    assert.equal(reasoningItems(other)[0]?.encrypted_content, undefined);
+  }
+}
+
 async function testChatCacheKeySurvivesInboundNormalization() {
   const chat = new OpenAITransformer();
   const unified = await chat.transformRequestOut({ model: MODEL, prompt_cache_key: "client-cache-affinity", messages: [{ role: "user", content: "hi" }] });
@@ -334,6 +366,7 @@ function testGeneratedReasoningIdsCannotCollide() {
 }
 
 async function main() {
+  await testChatTextTurnRestoresCiphertextAndStablePrefix();
   await testChatCacheKeySurvivesInboundNormalization();
   testGeneratedReasoningIdsCannotCollide();
   await testChatFinalTurnReasoningTextIsSummaryOnly();
