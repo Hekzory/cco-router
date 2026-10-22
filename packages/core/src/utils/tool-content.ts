@@ -224,6 +224,16 @@ export function anthropicToolResultToUnified(content: unknown): string | any[] {
         text: block.text,
         ...(block.cache_control ? { cache_control: block.cache_control } : {}),
       });
+    } else if (
+      block.type === "tool_reference" &&
+      typeof block.tool_name === "string" &&
+      block.tool_name
+    ) {
+      parts.push({
+        type: "text",
+        text: `Tool reference: ${block.tool_name}`,
+        ...(block.cache_control ? { cache_control: block.cache_control } : {}),
+      });
     } else if (block.type === "image" && block.source) {
       const url =
         block.source.type === "base64"
