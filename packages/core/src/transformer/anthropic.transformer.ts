@@ -367,6 +367,21 @@ export class AnthropicTransformer implements Transformer {
     let assistantOrdinal = 0;
 
     requestMessages?.forEach((msg: any) => {
+      // Claude Code also carries runtime harness messages inside the history.
+      // Keep their position and original text; never infer authority from tags.
+      if (msg.role === "system") {
+        if (typeof msg.content === "string") {
+          messages.push({ role: "system", content: msg.content });
+        } else if (Array.isArray(msg.content) && msg.content.every(
+          (part: any) => part?.type === "text" && typeof part.text === "string"
+        )) {
+          messages.push({ role: "system", content: msg.content });
+        } else {
+          throw createApiError("Unsupported runtime system message content", 400,
+            "invalid_request_error", "invalid_request_error");
+        }
+        return;
+      }
       if (msg.role === "assistant") assistantOrdinal += 1;
       if (msg.role === "user" || msg.role === "assistant") {
         if (typeof msg.content === "string") {

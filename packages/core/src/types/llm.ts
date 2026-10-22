@@ -98,6 +98,7 @@ export interface UnifiedTool {
   function: {
     name: string;
     description: string;
+    strict?: boolean;
     parameters: {
       type: "object";
       properties: Record<string, any>;

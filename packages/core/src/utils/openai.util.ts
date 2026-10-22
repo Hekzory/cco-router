@@ -11,8 +11,12 @@ import {
  * Requires tool messages to immediately follow assistant messages with tool_calls.
  * Enforces strict immediate following sequence between tool_calls and tool messages.
  */
-export function validateOpenAIToolCalls(messages: any[]): any[] {
+export function validateOpenAIToolCalls(messages: any[], allowInterleavedSystemMessages = false): any[] {
   const validatedMessages: any[] = [];
+  // Responses can carry runtime instructions between a call and its results.
+  // They are not a new conversational turn and must not orphan the tool pair.
+  const isRuntimeInstruction = (message: any) => allowInterleavedSystemMessages &&
+    (message.role === "system" || message.role === "developer");
 
   for (let i = 0; i < messages.length; i++) {
     const currentMessage = { ...messages[i] };
@@ -25,8 +29,8 @@ export function validateOpenAIToolCalls(messages: any[]): any[] {
       // Collect all immediately following tool messages
       const immediateToolMessages: any[] = [];
       let j = i + 1;
-      while (j < messages.length && messages[j].role === "tool") {
-        immediateToolMessages.push(messages[j]);
+      while (j < messages.length && (messages[j].role === "tool" || isRuntimeInstruction(messages[j]))) {
+        if (messages[j].role === "tool") immediateToolMessages.push(messages[j]);
         j++;
       }
 
@@ -60,25 +64,14 @@ export function validateOpenAIToolCalls(messages: any[]): any[] {
     else if (currentMessage.role === "tool") {
       let hasImmediateToolCall = false;
 
-      // Check if the immediately preceding assistant message has matching tool_call
-      if (i > 0) {
-        const prevMessage = messages[i - 1];
-        if (prevMessage.role === "assistant" && prevMessage.tool_calls) {
-          hasImmediateToolCall = prevMessage.tool_calls.some((toolCall: any) =>
+      for (let k = i - 1; k >= 0; k--) {
+        if (messages[k].role === "tool" || isRuntimeInstruction(messages[k])) continue;
+        if (messages[k].role === "assistant" && messages[k].tool_calls) {
+          hasImmediateToolCall = messages[k].tool_calls.some((toolCall: any) =>
             toolCall.id === currentMessage.tool_call_id
           );
-        } else if (prevMessage.role === "tool") {
-          // Check for assistant message before the sequence of tool messages
-          for (let k = i - 1; k >= 0; k--) {
-            if (messages[k].role === "tool") continue;
-            if (messages[k].role === "assistant" && messages[k].tool_calls) {
-              hasImmediateToolCall = messages[k].tool_calls.some((toolCall: any) =>
-                toolCall.id === currentMessage.tool_call_id
-              );
-            }
-            break;
-          }
         }
+        break;
       }
 
       if (hasImmediateToolCall) {

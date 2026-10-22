@@ -178,6 +178,17 @@ imported from Codex's bundled catalog (`codex-rs/models-manager/models.json`)
 into `packages/core/src/utils/codex-model-catalog.ts`; refresh it when Codex
 adds or retires models.
 
+- **Runtime instructions** retain their place in history. Lite maps runtime
+  system messages to developer messages, preserving their text and wrappers;
+  only the opening instruction prefix folds into `instructions`. Classic routes
+  reject interleaved system messages instead of silently dropping or hoisting
+  them. User/tool/assistant data is never promoted by matching text tags; missing
+  source provenance cannot be reconstructed by the router. The Lite shape follows
+  the official client; acceptance by a particular subscription needs a live check.
+- **Optional tool arguments** stay optional: converted function tools default to
+  `strict: false`, including Edit; an explicit strict flag is retained. Required
+  fields are not rewritten and no null placeholders are injected. A model can
+  still choose optional arguments; this does not prove the cause of earlier calls.
 - **Reasoning effort** is limited to the model's supported levels. `none` /
   `minimal` move up to the lowest level and anything above the top level
   moves down to it. `ultra` is a Codex picker alias and is never sent: it
@@ -192,6 +203,15 @@ adds or retires models.
   "developer"}` input item (function and custom tools grouped in the
   `functions` namespace), `parallel_tool_calls` is `false`, `reasoning.context`
   is `all_turns`, and input images carry no `detail`.
+- **Parallel tool calls**: on classic routes with catalog support (for example,
+  `gpt-5.5`), an explicit client `parallel_tool_calls` wins over the provider's
+  `parallelToolCalls` default. Anthropic `disable_parallel_tool_use: true`
+  therefore stays serial. Unknown models require provider opt-in. Astra/Sol's
+  catalog advertises parallel support, but the [official Codex client at
+  `9a8a85bc5393`](https://github.com/openai/codex/blob/9a8a85bc539325f2819dd0717f88b6ba6286495e/codex-rs/core/src/client.rs#L1117)
+  still disables it for Lite; CCR retains that wire shape. Enabling parallel
+  Lite calls needs a live backend check, not just the catalog flag. Serial
+  calls do not prevent already-launched background agents from running together.
 - **Verbosity** is sent as `text.verbosity`. The client's value wins, then the
   provider's `verbosity`, then the value implied by `REASONING_AUTO_SUMMARY`
   (`detailed` → `high`, `auto` → `medium`, `concise` → `low`) for catalog
