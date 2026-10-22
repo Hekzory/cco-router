@@ -1,12 +1,37 @@
-# Publishing @caeliq packages
+# Publishing
 
-This repo publishes:
+## Hekzory fork
+
+This fork ships `2.1.16-hekzory.1` (core `1.0.74-hekzory.1`) as a bundled CLI
+archive in GitHub Releases, not to npm. The package keeps its upstream name
+so existing `ccr` installations and launchers keep working.
+
+After build, typecheck, lint and hermetic tests pass, tag the CLI version:
+
+```bash
+git tag v2.1.16-hekzory.1
+git push origin v2.1.16-hekzory.1
+```
+
+`release.yml` repeats the checks, tests a clean archive installation, and
+publishes the `.tgz` and `SHA256SUMS`. Install by the pinned release URL;
+no GitHub token is needed. Never replace an existing release asset.
+
+```bash
+npm install https://github.com/Hekzory/claude-code-router/releases/download/v2.1.16-hekzory.1/caeliq-claude-code-router-2.1.16-hekzory.1.tgz
+```
+
+Upstream npm, Docker and Pages workflows run only in the upstream repository.
+
+## Upstream publishing reference
+
+Upstream publishes:
 
 | Package | Path | Published version |
 |---|---|---|
-| `@caeliq/ccr-shared` | `packages/shared` | `2.1.15` |
-| `@caeliq/llms` | `packages/core` | `1.0.73` |
-| `@caeliq/claude-code-router` | `packages/cli` | `2.1.15` |
+| `@caeliq/ccr-shared` | `packages/shared` | `2.1.16` |
+| `@caeliq/llms` | `packages/core` | `1.0.74` |
+| `@caeliq/claude-code-router` | `packages/cli` | `2.1.16` |
 
 GitHub repo used for provenance / trusted publishing: `oakimov/claude-code-router`  
 npm org: `caeliq`  
@@ -91,7 +116,7 @@ Workflow: `.github/workflows/npm-publish.yml`
 
 Triggers:
 
-- Push of a version tag: `v*.*.*` (example: `v2.1.15`)
+- Push of a version tag: `v*.*.*` (example: `v2.1.16`)
 - Manual **workflow_dispatch** (optional dry-run)
 
 It builds with pnpm, then runs `scripts/release.sh npm` with:
@@ -112,8 +137,8 @@ It builds with pnpm, then runs `scripts/release.sh npm` with:
 2. Commit and push to `github` (`main`)
 3. Tag and push (prefer matching the CLI version):
    ```bash
-   git tag v2.1.15
-   git push github v2.1.15
+   git tag v2.1.16
+   git push github v2.1.16
    ```
 4. Watch **Actions → Publish npm packages**
 

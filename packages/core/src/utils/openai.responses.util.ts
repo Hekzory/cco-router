@@ -996,27 +996,86 @@ export function responsesReasoningItemFromThinking(
 }
 
 /**
- * Zen rejects Requests whose `input` repeats the same reasoning item id.
- * Rewrite placeholders / collisions using ciphertext (or summary) as seed.
+ * Build provider input separately from client-output labels. A reasoning id
+ * without ciphertext is a provider reference, so text alone must not mint
+ * one. Replay real ciphertext/carried ids, or send an id-less text summary.
  */
-export function uniquifyReasoningItemIds(items: any[] | undefined): void {
-  if (!Array.isArray(items)) return;
+export function responsesReasoningInputItemFromThinking(
+  thinking:
+    | {
+        content?: string;
+        signature?: string;
+        encrypted_content?: string;
+        id?: string;
+      }
+    | undefined
+): any | null {
+  if (!thinking || typeof thinking !== "object") return null;
+  const encrypted_content = responsesEncryptedContentFrom(
+    thinking.encrypted_content
+  );
+  if (encrypted_content || isUsableReasoningItemId(thinking.id)) {
+    return responsesReasoningItemFromThinking(thinking);
+  }
+  const content = typeof thinking.content === "string" ? thinking.content : "";
+  if (!content) return null;
+  return {
+    type: "reasoning",
+    summary: [{ type: "summary_text", text: content }],
+  };
+}
+
+/**
+ * Zen rejects Requests whose `input` repeats the same reasoning item id.
+ * Rewrite placeholders / collisions of ciphertext-bearing items using the
+ * ciphertext as seed; the backend verifies those by content. An item without
+ * ciphertext is resolved by id, so a minted id would dangle: a duplicate
+ * reference is dropped, and a placeholder id is removed so the item travels
+ * as summary-only. Returns the number of dropped items.
+ */
+export function uniquifyReasoningItemIds(items: any[] | undefined): number {
+  if (!Array.isArray(items)) return 0;
   const seen = new Set<string>();
+  // Reserve carried ids, including later references, before minting any id.
+  const reserved = new Set<string>(
+    items
+      .filter((item) => item?.type === "reasoning" && isUsableReasoningItemId(item.id))
+      .map((item) => item.id)
+  );
+  let kept = 0;
+  let dropped = 0;
   for (let index = 0; index < items.length; index++) {
     const item = items[index];
-    if (!item || item.type !== "reasoning") continue;
+    if (!item || item.type !== "reasoning") {
+      items[kept++] = item;
+      continue;
+    }
     let id = isUsableReasoningItemId(item.id) ? item.id : "";
     if (!id || seen.has(id)) {
-      const summary = reasoningSummaryText(item);
-      const encrypted =
-        typeof item.encrypted_content === "string" ? item.encrypted_content : "";
-      const seed =
-        encrypted || summary || `reasoning:${index}:${id || "missing"}`;
-      id = mintReasoningItemId(seen.has(id) ? `${seed}#${index}` : seed);
-      item.id = id;
+      const encrypted = responsesEncryptedContentFrom(item.encrypted_content);
+      if (encrypted) {
+        const seed = seen.has(id) ? `${encrypted}#${index}` : encrypted;
+        id = mintReasoningItemId(seed);
+        let collision = 0;
+        while (seen.has(id) || reserved.has(id)) {
+          id = mintReasoningItemId(`${seed}#${++collision}`);
+        }
+        item.id = id;
+      } else if (!id && reasoningSummaryText(item)) {
+        delete item.id;
+        items[kept++] = item;
+        continue;
+      } else {
+        dropped++;
+        continue;
+      }
     }
     seen.add(id);
+    items[kept++] = item;
   }
+  // Compact once; repeated splice would shift the tail for every duplicate.
+  items.length = kept;
+  return dropped;
 }
 
 function attachThinkingToAssistant(

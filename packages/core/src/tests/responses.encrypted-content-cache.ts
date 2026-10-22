@@ -895,7 +895,23 @@ async function testResponsesClientDoesNotRestoreFromCache() {
   assert.equal(reasoning, undefined);
 }
 
+function testNamespaceSeparatesCredentialsAndClientCacheKeys() {
+  const request = { model: "muse", prompt_cache_key: "client-a" };
+  const a = buildEncryptedReasoningCacheNamespace(request, { ...provider, apiKey: "test-credential-a" }, chatContext() as any);
+  const b = buildEncryptedReasoningCacheNamespace(request, { ...provider, apiKey: "test-credential-b" }, chatContext() as any);
+  const c = buildEncryptedReasoningCacheNamespace({ ...request, prompt_cache_key: "client-b" }, { ...provider, apiKey: "test-credential-a" }, chatContext() as any);
+  assert.notEqual(a, b);
+  assert.notEqual(a, c);
+  assert.match(a, /^[a-f0-9]{64}$/);
+  // Keyed fingerprints must stay stable within the process so replay hits.
+  assert.equal(
+    a,
+    buildEncryptedReasoningCacheNamespace(request, { ...provider, apiKey: "test-credential-a" }, chatContext() as any)
+  );
+}
+
 async function main() {
+  testNamespaceSeparatesCredentialsAndClientCacheKeys();
   await testAnthropicRequestsEncryptedInclude();
   await testResponsesClientDoesNotInventInclude();
   await testCachedEncryptedReplayAfterJson();

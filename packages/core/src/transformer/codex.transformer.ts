@@ -15,6 +15,7 @@ import { createApiError } from "../api/middleware";
 import { attachScopedErrorClassificationText } from "../utils/request-scoped-errors";
 import {
   bufferCodexBootstrapStream,
+  classifyCodexError,
   type CodexBootstrapOptions,
   type CodexOverloadKind,
 } from "../utils/codex-bootstrap";
@@ -860,12 +861,6 @@ export class CodexTransformer implements Transformer {
     if (contentType.includes("application/json")) {
       const jsonResponse: any = await response.json();
       if (Array.isArray(jsonResponse)) {
-        if (!wantsStream) {
-          const completed = jsonResponse.find(
-            (event: any) => event?.type === "response.completed"
-          )?.response;
-          if (completed) return asJson(completed);
-        }
         const encoder = new TextEncoder();
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
@@ -920,7 +915,7 @@ export class CodexTransformer implements Transformer {
 
   private async collectSseIntoResponses(response: Response): Promise<any> {
     if (!response.body) {
-      return { object: "response", output: [] };
+      throw createApiError("Codex returned an empty stream", 502, "upstream_stream_incomplete");
     }
     const reader = createSSEStreamReader(
       response,
@@ -929,26 +924,42 @@ export class CodexTransformer implements Transformer {
       }
     );
     const text = await new Response(reader.body).text();
-    let completed: any;
-    const output: any[] = [];
     for (const line of text.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
+      if (!line.startsWith("data:")) continue;
       const dataStr = line.slice(5).trim();
       if (!dataStr || dataStr === "[DONE]") continue;
+      let event: any;
       try {
-        const event = JSON.parse(dataStr);
-        if (event?.type === "response.output_item.done" && event.item) {
-          output.push(event.item);
-        }
-        if (event?.type === "response.completed" && event.response) {
-          completed = event.response;
-        }
+        event = JSON.parse(dataStr);
       } catch {
-        // ignore malformed line
+        continue;
+      }
+      if (event?.type === "response.failed" || event?.type === "error") {
+        const upstream = event.response?.error ?? event.error ?? event;
+        const kind = classifyCodexError(upstream);
+        const failure = kind ? CODEX_CAPACITY_ERRORS[kind] : undefined;
+        const error = createApiError(
+          typeof upstream.message === "string" ? upstream.message : "Codex response failed",
+          failure?.status ?? 502,
+          failure?.code ?? (typeof upstream.code === "string" ? upstream.code : "upstream_error")
+        );
+        attachScopedErrorClassificationText(error, JSON.stringify(upstream));
+        throw error;
+      }
+      if (
+        (event?.type === "response.completed" || event?.type === "response.incomplete") &&
+        event.response && typeof event.response === "object"
+      ) {
+        // Preserve incomplete_details and usage; the Responses adapter maps
+        // max_output_tokens to the client's length/max_tokens stop reason.
+        return event.response;
       }
     }
-    if (completed) return completed;
-    return { object: "response", output };
+    throw createApiError(
+      "Codex stream ended without a terminal response",
+      502,
+      "upstream_stream_incomplete"
+    );
   }
 }
 

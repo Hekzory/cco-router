@@ -15,6 +15,7 @@ jobs:
   # ubuntu-latest crashes Node/npm with SIGILL (exit 132) during corepack/
   # npm global installs in this image.
   build:
+    if: github.repository == 'oakimov/claude-code-router'
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
