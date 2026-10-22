@@ -300,7 +300,6 @@ export {
   getValidAccessToken as getCodexAccessToken,
 } from "./utils/codex-auth";
 export { getValidAccessToken as getQwenAccessToken } from "./utils/qwen-auth";
-export { getValidAccessToken as getXaiAccessToken } from "./utils/xai-auth";
 export {
   matchClientProtocol,
   isRoutedLlmPost,

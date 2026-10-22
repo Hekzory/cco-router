@@ -155,14 +155,12 @@ export interface PresetConfigSection {
   Providers?: ProviderConfig[];
   Router?: RouterConfig;
   transformers?: TransformerConfig[];
-  StatusLine?: any;
   NON_INTERACTIVE_MODE?: boolean;
 
   // CLI-only fields (not used by server)
   noServer?: boolean;                // CLI: Whether to skip local server startup and use provider's API directly
   claudeCodeSettings?: {             // CLI: Claude Code specific settings
     env?: Record<string, any>;       // CLI: Environment variables to pass to Claude Code
-    statusLine?: any;                // CLI: Status line configuration
     [key: string]: any;
   };
 
@@ -171,7 +169,7 @@ export interface PresetConfigSection {
 
 // Template configuration (for dynamically generating configuration based on user input)
 export interface TemplateConfig {
-  // Template configuration using #{variable} syntax (different from statusline's {{variable}} format)
+  // Template configuration using #{variable} syntax
   // Example: { "Providers": [{ "name": "#{providerName}", "api_key": "#{apiKey}" }] }
   [key: string]: any;
 }

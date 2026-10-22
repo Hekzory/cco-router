@@ -51,7 +51,7 @@ async function listPresets(): Promise<void> {
       const manifest = JSON5.parse(content);
 
       // Extract metadata fields from manifest
-      const { Providers, Router, PORT, HOST, API_TIMEOUT_MS, PROXY_URL, LOG, LOG_LEVEL, StatusLine, NON_INTERACTIVE_MODE, ...metadata } = manifest;
+      const { Providers, Router, PORT, HOST, API_TIMEOUT_MS, PROXY_URL, LOG, LOG_LEVEL, NON_INTERACTIVE_MODE, ...metadata } = manifest;
 
       const name = metadata.name || dirName;
       const description = metadata.description || '';

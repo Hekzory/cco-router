@@ -99,7 +99,6 @@ export interface DebugModelConfig {
     | "claude-auth"
     | "codex"
     | "qwen-auth"
-    | "antigravity-auth"
-    | "xai-auth";
+    | "antigravity-auth";
   hint?: string;
 }

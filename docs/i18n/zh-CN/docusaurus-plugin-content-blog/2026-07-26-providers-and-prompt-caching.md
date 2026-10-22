@@ -46,6 +46,6 @@ tags: [changelog, fork, providers, caching]
 ## 文档
 
 - [Claude Auth](/docs/server/guides/claude-auth)
-- [Cursor SDK](/docs/server/guides/cursor)
+- [Cursor SDK](https://github.com/Hekzory/cco-router/blob/v3.0.0/docs/docs/server/guides/cursor.md)
 - [Codex 集成](/docs/server/guides/codex)
 - [更早的分支时间线](/blog/2026/06/01/fork-changelog)

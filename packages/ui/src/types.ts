@@ -33,32 +33,10 @@ export interface Transformer {
     options?: Record<string, any>;
 }
 
-export interface StatusLineModuleConfig {
-  type: string;
-  icon?: string;
-  text: string;
-  color?: string;
-  background?: string;
-  scriptPath?: string; // used for script type modules, specifies the path to the Node.js script file to execute
-}
-
-export interface StatusLineThemeConfig {
-  modules: StatusLineModuleConfig[];
-}
-
-export interface StatusLineConfig {
-  enabled: boolean;
-  currentStyle: string;
-  default: StatusLineThemeConfig;
-  powerline: StatusLineThemeConfig;
-  fontFamily?: string;
-}
-
 export interface Config {
   Providers: Provider[];
   Router: RouterConfig;
   transformers: Transformer[];
-  StatusLine?: StatusLineConfig;
   forceUseImageAgent?: boolean;
   // Top-level settings
   LOG: boolean;

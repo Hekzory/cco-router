@@ -1,5 +1,4 @@
 import { LLMProvider, UnifiedChatRequest } from "./llm";
-import type { UnifiedRequestRuntime } from "./turn-intent";
 
 export interface TransformerOptions {
   [key: string]: any;
@@ -16,8 +15,6 @@ export interface TransformerContext {
   req?: any;
   provider?: any;
   signal?: AbortSignal;
-  /** Protocol semantics that must not be serialized into the provider body. */
-  unifiedRequest?: UnifiedRequestRuntime;
   /**
    * Set by claude-auth's transformRequestIn (non-Claude-Code branch) so that
    * AnthropicTransformer.transformRequestIn — which owns building the wire

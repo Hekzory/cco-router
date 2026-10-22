@@ -55,7 +55,7 @@ RUN pnpm build
 # Production Stage
 # ===========================
 # Pin to the current Node 22 LTS patch. The workspace floor is >=22.19.0
-# (undici); @cursor/sdk needs >=22.13. Keep in sync with the builder stage.
+# (undici). Keep in sync with the builder stage.
 FROM node:22.23.2-alpine AS production
 
 # Install PM2, curl, and pm2-logrotate
@@ -87,8 +87,7 @@ COPY --from=builder /app/packages/server/dist ./packages/server/dist
 # Copy locally pre-built UI assets to the same directory
 COPY --from=builder /app/packages/ui/dist/. ./packages/server/dist/
 
-# Bundles externalize a few runtime packages (@cursor/sdk for native
-# platform bits; AI SDK + zod for the debug-chat playground). Workspace
+# Bundles externalize AI SDK + zod for the debug-chat playground. Workspace
 # pnpm node_modules are symlink farms into /app/node_modules/.pnpm, so copying
 # only packages/server/node_modules leaves those links broken in the runtime
 # image. Install real copies here instead (into a clean prefix — do not use
@@ -100,21 +99,18 @@ COPY --from=builder /app/packages/server/package.json /tmp/server-package.json
 RUN mkdir -p /tmp/runtime-externals /app/packages/server/node_modules && \
     cd /tmp/runtime-externals && \
     npm init -y >/dev/null && \
-    CURSOR_SDK="$(node -p "require('/tmp/server-package.json').dependencies['@cursor/sdk']")" && \
     AI_SDK_ANTHROPIC="$(node -p "require('/tmp/server-package.json').dependencies['@ai-sdk/anthropic']")" && \
     AI_SDK_OPENAI="$(node -p "require('/tmp/server-package.json').dependencies['@ai-sdk/openai']")" && \
     AI_SDK="$(node -p "require('/tmp/server-package.json').dependencies['ai']")" && \
     ZOD="$(node -p "require('/tmp/server-package.json').dependencies['zod']")" && \
-    test -n "$CURSOR_SDK" && test -n "$AI_SDK_ANTHROPIC" && test -n "$AI_SDK_OPENAI" && test -n "$AI_SDK" && test -n "$ZOD" && \
-    npm install "@cursor/sdk@${CURSOR_SDK}" "@ai-sdk/anthropic@${AI_SDK_ANTHROPIC}" "@ai-sdk/openai@${AI_SDK_OPENAI}" "ai@${AI_SDK}" "zod@${ZOD}" --omit=dev && \
+    test -n "$AI_SDK_ANTHROPIC" && test -n "$AI_SDK_OPENAI" && test -n "$AI_SDK" && test -n "$ZOD" && \
+    npm install "@ai-sdk/anthropic@${AI_SDK_ANTHROPIC}" "@ai-sdk/openai@${AI_SDK_OPENAI}" "ai@${AI_SDK}" "zod@${ZOD}" --omit=dev && \
     cp -a /tmp/runtime-externals/node_modules/. /app/packages/server/node_modules/ && \
     rm -rf /tmp/runtime-externals /tmp/server-package.json /root/.npm
 
 # Expose the same install to the CLI bundle resolution path
 # (/app/packages/cli/dist → … → node_modules).
 RUN mkdir -p /app/packages/cli/node_modules /app/node_modules && \
-    ln -sfn /app/packages/server/node_modules/@cursor /app/packages/cli/node_modules/@cursor && \
-    ln -sfn /app/packages/server/node_modules/@cursor /app/node_modules/@cursor && \
     ln -sfn /app/packages/server/node_modules/@ai-sdk /app/packages/cli/node_modules/@ai-sdk && \
     ln -sfn /app/packages/server/node_modules/@ai-sdk /app/node_modules/@ai-sdk && \
     ln -sfn /app/packages/server/node_modules/ai /app/packages/cli/node_modules/ai && \

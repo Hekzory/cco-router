@@ -82,6 +82,6 @@ tags: [changelog, fork, features]
 
 - [Codex 集成](/docs/server/guides/codex)
 - [Qwen Chat 集成](/docs/server/guides/qwen)
-- [Chrome 内置模型](/docs/server/guides/chrome-on-device)
+- [Chrome 内置模型](https://github.com/Hekzory/cco-router/blob/v3.0.0/docs/docs/server/guides/chrome-on-device.md)
 - [DeepSeek 推理重放](/docs/server/guides/deepseek-reasoning)
 - [模型发现](/docs/server/guides/model-discovery)

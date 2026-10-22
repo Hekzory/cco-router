@@ -38,17 +38,6 @@ function normalizeConfig(data: Config): Config {
     transformers: Array.isArray(data.transformers) ? data.transformers : [],
     Providers: Array.isArray(data.Providers) ? data.Providers : [],
     forceUseImageAgent: typeof data.forceUseImageAgent === 'boolean' ? data.forceUseImageAgent : undefined,
-    StatusLine: data.StatusLine && typeof data.StatusLine === 'object' ? {
-      enabled: typeof data.StatusLine.enabled === 'boolean' ? data.StatusLine.enabled : false,
-      currentStyle: typeof data.StatusLine.currentStyle === 'string' ? data.StatusLine.currentStyle : 'default',
-      default: data.StatusLine.default && typeof data.StatusLine.default === 'object' && Array.isArray(data.StatusLine.default.modules) ? data.StatusLine.default : { modules: [] },
-      powerline: data.StatusLine.powerline && typeof data.StatusLine.powerline === 'object' && Array.isArray(data.StatusLine.powerline.modules) ? data.StatusLine.powerline : { modules: [] }
-    } : {
-      enabled: false,
-      currentStyle: 'default',
-      default: { modules: [] },
-      powerline: { modules: [] }
-    },
     Router: data.Router && typeof data.Router === 'object' ? {
       default: typeof data.Router.default === 'string' ? data.Router.default : '',
       background: typeof data.Router.background === 'string' ? data.Router.background : '',

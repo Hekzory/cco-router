@@ -4,39 +4,27 @@
  * return path, and one replay turn.
  *
  * Config providers covered (by wire, not live OAuth):
- *   xai-supergrok   xai-auth → openai-responses
  *   claude          claude-auth → Anthropic
  *   antigravity     gemini (cachedContent:false) → Antigravity envelope
  *   codex           openai-responses → codex
  *   codestral       mistral
  *   openrouter/nvidia/opencode  OpenAI Chat (+ reasoning on OpenCode)
- *   chrome-nano     chrome-on-device → tooluse
- *   cursor          cache strip + SDK prompt flatten (no live Agent.run)
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AnthropicTransformer } from "../transformer/anthropic.transformer";
-import { ChromeOnDeviceTransformer } from "../transformer/chrome-on-device.transformer";
 import { ClaudeAuthTransformer } from "../transformer/claude-auth.transformer";
 import { CodexTransformer } from "../transformer/codex.transformer";
 import { GeminiTransformer } from "../transformer/gemini.transformer";
 import { OpenAIResponsesTransformer } from "../transformer/openai.responses.transformer";
 import { OpenAITransformer } from "../transformer/openai.transformer";
 import { ReasoningTransformer } from "../transformer/reasoning.transformer";
-import { TooluseTransformer } from "../transformer/tooluse.transformer";
-import { XaiAuthTransformer } from "../transformer/xai-auth.transformer";
-import { toSdkPrompt } from "../cursor-sdk/prompt";
 import { wrapAntigravityRequest } from "../utils/antigravity-auth";
 import { transformResponseOut as geminiResponseOut } from "../utils/gemini.util";
 import { buildRequestBody as buildMistralBody } from "../utils/mistral.util";
 import { transformResponseOut as mistralResponseOut } from "../utils/mistral.util";
-import {
-  stripMessagesCacheControl,
-  stripToolsCacheControl,
-} from "../utils/cacheControl";
-
 const logger = { debug() {}, info() {}, warn() {}, error() {} } as any;
 
 const PLAN = "plan first";
@@ -231,7 +219,7 @@ async function inboundChat() {
 
 async function inboundResponses() {
   return new OpenAIResponsesTransformer().transformRequestOut({
-    model: "grok-4.6",
+    model: "responses-model",
     input: [
       { role: "system", content: "stable system" },
       { role: "user", content: "hi" },
@@ -278,37 +266,35 @@ async function testRequestChains() {
   for (const [source, unified] of sources) {
     assistantHasThinkingAndTool(unified.messages);
 
-    const xai = await applyChain(
+    const responses = await applyChain(
       unified,
-      [new XaiAuthTransformer(), new OpenAIResponsesTransformer()],
+      [new OpenAIResponsesTransformer()],
       {
-        name: "xai-supergrok",
-        apiKey: "xai-test-key",
-        baseUrl: "https://api.x.ai/v1",
+        name: "responses-provider",
+        apiKey: "test-key",
+        baseUrl: "https://responses.example.test/v1",
       },
       sessionCtx()
     );
-    assert.equal(xai.config.url, "https://api.x.ai/v1/responses");
-    assert.equal(xai.config.headers.Authorization, "Bearer xai-test-key");
-    const xaiInput = xai.body.input || [];
+    const responseInput = responses.body.input || [];
     assert.ok(
-      xaiInput.some((item: any) => item.type === "reasoning"),
-      `${source}→xAI reasoning item`
+      responseInput.some((item: any) => item.type === "reasoning"),
+      `${source}→Responses reasoning item`
     );
     assert.ok(
-      xaiInput.some(
+      responseInput.some(
         (item: any) =>
           item.type === "function_call" || item.type === "custom_tool_call"
       ),
-      `${source}→xAI function_call`
+      `${source}→Responses function_call`
     );
     assert.ok(
-      JSON.stringify(xai.body).includes("cache_control") === false,
-      `${source}→xAI must not forward Anthropic cache_control`
+      JSON.stringify(responses.body).includes("cache_control") === false,
+      `${source}→Responses must not forward Anthropic cache_control`
     );
     assert.ok(
-      String(xai.body.prompt_cache_key || "").startsWith("ccr_"),
-      `${source}→xAI prompt_cache_key`
+      String(responses.body.prompt_cache_key || "").startsWith("ccr_"),
+      `${source}→Responses prompt_cache_key`
     );
 
     const claude = await applyChain(
@@ -461,59 +447,6 @@ async function testRequestChains() {
       PLAN
     );
 
-    const chrome = await applyChain(
-      unified,
-      [new ChromeOnDeviceTransformer(), new TooluseTransformer()],
-      { name: "chrome-nano", baseUrl: "http://127.0.0.1:3457" },
-      sessionCtx()
-    );
-    assert.equal(chrome.config.url, "http://127.0.0.1:3457/v1/chat/completions");
-    assert.ok(
-      String(chrome.config.headers["x-ccr-session-id"] || "").startsWith("ccr_")
-    );
-    assert.ok(
-      chrome.body.messages.some(
-        (m: any) =>
-          m.role === "system" &&
-          typeof m.content === "string" &&
-          m.content.includes("Tool mode is active")
-      ),
-      `${source}→chrome+tooluse reminder`
-    );
-    assert.ok(
-      Array.isArray(chrome.body.tools),
-      `${source}→chrome tools present (keys=${Object.keys(chrome.body || {}).join(",")})`
-    );
-    assert.ok(
-      chrome.body.tools.some((t: any) => t.function?.name === "ExitTool"),
-      `${source}→chrome+tooluse ExitTool`
-    );
-    assert.ok(
-      JSON.stringify(chrome.body).includes("cache_control") === false,
-      `${source}→chrome must strip cache_control`
-    );
-
-    const cursorBody = {
-      ...structuredClone(unified),
-      messages: stripMessagesCacheControl(unified.messages),
-      tools: stripToolsCacheControl(unified.tools),
-    };
-    assert.ok(
-      JSON.stringify(cursorBody).includes("cache_control") === false,
-      `${source}→cursor strips cache_control`
-    );
-    const prompt = toSdkPrompt(cursorBody, {
-      mode: "bridge",
-      workspaceDir: "/tmp/ws",
-    });
-    const promptText = String((prompt as any).text || (prompt as any).content || prompt);
-    assert.ok(promptText.includes("[system]"), `${source}→cursor system first`);
-    assert.ok(promptText.includes("[user]"));
-    assert.match(
-      promptText,
-      /\[assistant/,
-      `${source}→cursor keeps assistant/tool_call history`
-    );
   }
 }
 
@@ -524,7 +457,7 @@ async function testPathBackAndReplay() {
   const responsesClient = new OpenAIResponsesTransformer();
   (responsesClient as any).logger = logger;
 
-  const grokStream = sse([
+  const providerStream = sse([
     `{"type":"response.reasoning_summary_text.delta","item_id":"${REASONING_ID}","delta":"${PLAN}"}`,
     JSON.stringify({
       type: "response.output_item.done",
@@ -540,7 +473,7 @@ async function testPathBackAndReplay() {
       type: "response.completed",
       response: {
         id: "resp_1",
-        model: "grok-4.6",
+        model: "responses-model",
         output: [
           {
             type: "reasoning",
@@ -557,13 +490,13 @@ async function testPathBackAndReplay() {
       },
     }),
   ]);
-  const grokUnified = await new OpenAIResponsesTransformer().transformResponseOut(
-    grokStream
+  const providerUnified = await new OpenAIResponsesTransformer().transformResponseOut(
+    providerStream
   );
 
   const anthEvents = parseAnthropicSse(
     await (
-      await anthropicClient.transformResponseIn(grokUnified.clone(), {
+      await anthropicClient.transformResponseIn(providerUnified.clone(), {
         req: { id: "cfg-back-anth" },
       } as any)
     ).text()
@@ -575,7 +508,7 @@ async function testPathBackAndReplay() {
     )
     .map((e) => e.data.delta.thinking)
     .join("");
-  assert.equal(thinking, PLAN, "Grok→Anthropic thinking once");
+  assert.equal(thinking, PLAN, "Responses→Anthropic thinking once");
   assert.deepEqual(
     anthEvents
       .filter((e) => e.event === "content_block_start")
@@ -584,7 +517,7 @@ async function testPathBackAndReplay() {
   );
 
   const chatChunks = parseChatSse(
-    await (await chatClient.transformResponseIn(grokUnified.clone(), {} as any)).text()
+    await (await chatClient.transformResponseIn(providerUnified.clone(), {} as any)).text()
   );
   const chatThinking = chatChunks
     .map((c) => c.choices?.[0]?.delta?.thinking?.content || "")
@@ -663,7 +596,7 @@ async function testPathBackAndReplay() {
   assert.equal(mistralChat.choices[0].message.reasoning_content, PLAN);
 
   const responsesReplay = await responsesClient.transformRequestOut({
-    model: "grok-4.6",
+    model: "responses-model",
     input: [
       { role: "user", content: "hi" },
       {

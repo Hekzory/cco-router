@@ -1,6 +1,6 @@
 {
   "name": "@caeliq/llms",
-  "version": "1.0.75",
+  "version": "1.0.76",
   "description": "A universal LLM API transformation server",
   "main": "dist/cjs/server.cjs",
   "module": "dist/esm/server.mjs",
@@ -41,7 +41,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@caeliq/ccr-shared": "workspace:*",
-    "@cursor/sdk": "^1.0.36",
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.2.0",
     "@google/genai": "^2.18.0",

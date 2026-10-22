@@ -146,11 +146,11 @@ async function buildApp() {
           transformer: { use: ["openai-responses", "opencode-headers"] },
         },
         {
-          name: "xai",
-          api_base_url: "https://xai.invalid/v1",
-          api_key: "xai-hermetic-test-key",
-          models: ["grok"],
-          transformer: { use: ["xai-auth", "openai-responses"] },
+          name: "responses-provider",
+          api_base_url: "https://responses-provider.invalid/v1",
+          api_key: "responses-provider-hermetic-test-key",
+          models: ["responses-model"],
+          transformer: { use: ["openai-responses"] },
         },
         {
           name: "codex",
@@ -413,7 +413,7 @@ async function main() {
     }
     if (
       request.url.includes("zen.invalid") ||
-      request.url.includes("xai.invalid") ||
+      request.url.includes("responses-provider.invalid") ||
       request.url.includes("codex.invalid")
     ) {
       return responsesKeepOk();
@@ -1354,12 +1354,12 @@ async function main() {
       const result = await app.inject({
         method: "POST",
         url: "/v1/responses",
-        payload: keepResponsesPayload("xai,grok"),
+        payload: keepResponsesPayload("responses-provider,responses-model"),
       });
       assert.equal(result.statusCode, 200, result.body);
       const upstream = captured
         .slice(before)
-        .find((request) => request.url.includes("xai.invalid"));
+        .find((request) => request.url.includes("responses-provider.invalid"));
       assert.ok(upstream, JSON.stringify(captured.slice(before)));
       assertKeptResponsesWire(upstream!.body);
     }

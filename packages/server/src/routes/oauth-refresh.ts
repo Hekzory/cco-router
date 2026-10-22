@@ -5,7 +5,6 @@ import {
   getClaudeAccessToken,
   getCodexAccessToken,
   getQwenAccessToken,
-  getXaiAccessToken,
 } from "@caeliq/llms";
 import {
   codexPatForProvider,
@@ -31,9 +30,6 @@ export async function forceRefreshOAuth(kind: OAuthKind): Promise<void> {
       return;
     case "antigravity-auth":
       await getAntigravityAccessToken({ force: true });
-      return;
-    case "xai-auth":
-      await getXaiAccessToken({ force: true });
       return;
   }
 }

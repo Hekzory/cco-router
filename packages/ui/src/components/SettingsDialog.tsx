@@ -12,9 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Combobox } from "@/components/ui/combobox";
 import { useConfig } from "./ConfigProvider";
-import { StatusLineConfigDialog } from "./StatusLineConfigDialog";
-import { useState } from "react";
-import type { StatusLineConfig } from "@/types";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -24,7 +21,6 @@ interface SettingsDialogProps {
 export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
   const { t } = useTranslation();
   const { config, setConfig } = useConfig();
-  const [isStatusLineConfigOpen, setIsStatusLineConfigOpen] = useState(false);
 
   if (!config) {
     return null;
@@ -36,25 +32,6 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
 
   const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setConfig({ ...config, CLAUDE_PATH: e.target.value });
-  };
-
-  const handleStatusLineEnabledChange = (checked: boolean) => {
-    // Ensure we have a complete StatusLineConfig object
-    const newStatusLineConfig: StatusLineConfig = {
-      enabled: checked,
-      currentStyle: config.StatusLine?.currentStyle || "default",
-      default: config.StatusLine?.default || { modules: [] },
-      powerline: config.StatusLine?.powerline || { modules: [] },
-    };
-
-    setConfig({
-      ...config,
-      StatusLine: newStatusLineConfig,
-    });
-  };
-
-  const openStatusLineConfig = () => {
-    setIsStatusLineConfigOpen(true);
   };
 
   return (
@@ -76,33 +53,6 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
             >
               {t("toplevel.log")}
             </Label>
-          </div>
-          {/* StatusLine Configuration */}
-          <div className="space-y-2 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="statusline"
-                  checked={config.StatusLine?.enabled || false}
-                  onCheckedChange={handleStatusLineEnabledChange}
-                />
-                <Label
-                  htmlFor="statusline"
-                  className="transition-all-ease hover:scale-[1.02] cursor-pointer"
-                >
-                  {t("statusline.title")}
-                </Label>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openStatusLineConfig}
-                className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]"
-                data-testid="statusline-config-button"
-              >
-                {t("app.settings")}
-              </Button>
-            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="log-level" className="transition-all-ease hover:scale-[1.01] cursor-pointer">{t("toplevel.log_level")}</Label>
@@ -238,11 +188,6 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
         </DialogFooter>
       </DialogContent>
 
-      <StatusLineConfigDialog
-        isOpen={isStatusLineConfigOpen}
-        onOpenChange={setIsStatusLineConfigOpen}
-        data-testid="statusline-config-dialog"
-      />
     </Dialog>
   );
 }

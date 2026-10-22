@@ -1,7 +1,7 @@
 {
   "name": "claude-code-router",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "cco-router: Claude Code through an OpenAI subscription",
   "scripts": {
     "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli && pnpm build:ui",
@@ -12,7 +12,6 @@
     "build:ui": "pnpm --filter @caeliq/ccr-ui build",
     "build:docs": "pnpm --filter claude-code-router-docs build",
     "test": "node scripts/run-tests.js",
-    "test:chrome-bridge": "node scripts/run-tests.js --chrome-bridge",
     "test:live": "node scripts/run-tests.js --live cli",
     "typecheck": "pnpm -r --no-bail typecheck",
     "lint": "pnpm -r --no-bail lint",
@@ -35,9 +34,6 @@
   ],
   "author": "caeliq",
   "license": "MIT",
-  "dependencies": {
-    "@cursor/sdk": "^1.0.36"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.4.1",

@@ -16,16 +16,13 @@ import { spawn } from "child_process";
 import {getPresetDir, loadConfigFromManifest, PID_FILE, readPresetFile, REFERENCE_COUNT_FILE} from "@caeliq/ccr-shared";
 import fs, { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { parseStatusLineData, StatusLineInput } from "./utils/statusline";
 import {handlePresetCommand} from "./utils/preset";
 import { handleInstallCommand } from "./utils/installCommand";
 import { runCodexAuth } from "./utils/codex-cli-auth";
 import { codexConfigCommand } from "./utils/codexConfig";
 import { runQwenAuth } from "./utils/qwen-cli-auth";
-import { runChromeBridge } from "./utils/chrome-device-bridge";
 import { runClaudeAuth } from "./utils/claude-auth-cli";
 import { runAntigravityAuth } from "./utils/antigravity-cli-auth";
-import { runXaiAuth } from "./utils/xai-auth-cli";
 
 
 const command = process.argv[2];
@@ -36,7 +33,6 @@ const KNOWN_COMMANDS = [
   "stop",
   "restart",
   "status",
-  "statusline",
   "code",
   "model",
   "preset",
@@ -49,8 +45,6 @@ const KNOWN_COMMANDS = [
   "qwen-auth",
   "claude-auth",
   "antigravity-auth",
-  "xai-auth",
-  "chrome-bridge",
   "-v",
   "version",
   "-h",
@@ -65,7 +59,6 @@ Commands:
   stop          Stop server
   restart       Restart server
   status        Show server status
-  statusline    Integrated statusline
   code          Execute claude command
   model         Interactive model selection and configuration
                 Use ccr model get <provider> to test API access and list models
@@ -82,10 +75,6 @@ Commands:
   claude-auth   Show Claude Code OAuth credential status and provider config
   antigravity-auth  Authenticate with Google Antigravity via OAuth
                     Options: --manual, --project <id>
-  xai-auth      Authenticate with xAI Grok via SuperGrok/X Premium+ OAuth
-                (device code, no browser callback needed), or use a plain
-                XAI_API_KEY / xai-... api_key instead
-  chrome-bridge Start Chrome on-device model bridge (for Gemini Nano)
   -v, version   Show version information
   -h, help      Show help information
 
@@ -196,7 +185,6 @@ async function main() {
       const presetConfig: PresetConfig = {
         noServer: config.noServer,
         claudeCodeSettings: config.claudeCodeSettings,
-        StatusLine: config.StatusLine
       };
 
       if (shouldStartServer && !isRunning) {
@@ -215,7 +203,7 @@ async function main() {
         startProcess.unref();
 
         if (await waitForService()) {
-          executeCodeCommand(codeArgs, presetConfig, envOverrides, command);
+          executeCodeCommand(codeArgs, presetConfig, envOverrides);
         } else {
           console.error(
             "Service startup timeout, please manually run `ccr start` to start the service"
@@ -228,7 +216,7 @@ async function main() {
           console.error("Service is not running. Please start it first with `ccr start`");
           process.exit(1);
         }
-        executeCodeCommand(codeArgs, presetConfig, envOverrides, command);
+        executeCodeCommand(codeArgs, presetConfig, envOverrides);
       }
       return;
     } else {
@@ -267,31 +255,6 @@ async function main() {
     case "status":
       await showStatus();
       break;
-    case "statusline": {
-      // Read JSON input from stdin
-      let inputData = "";
-      process.stdin.setEncoding("utf-8");
-      process.stdin.on("readable", () => {
-        let chunk;
-        while ((chunk = process.stdin.read()) !== null) {
-          inputData += chunk;
-        }
-      });
-
-      process.stdin.on("end", async () => {
-        try {
-          const input: StatusLineInput = JSON.parse(inputData);
-          // Check if preset name is provided as argument
-          const presetName = process.argv[3];
-          const statusLine = await parseStatusLineData(input, presetName);
-          console.log(statusLine);
-        } catch (error) {
-          console.error("Error parsing status line data:", error);
-          process.exit(1);
-        }
-      });
-      break;
-    }
     case "model": {
       const modelSubcommand = process.argv[3];
 
@@ -350,26 +313,6 @@ async function main() {
     case "antigravity-auth":
       await runAntigravityAuth();
       break;
-    case "xai-auth":
-      await runXaiAuth();
-      break;
-    case "chrome-bridge": {
-      // Parse optional --port and --cdp flags
-      let port = 3457;
-      let cdpPort = 9222;
-      const args = process.argv.slice(3);
-      for (let i = 0; i < args.length; i++) {
-        if (args[i] === "--port" && args[i + 1]) {
-          port = parseInt(args[i + 1], 10);
-          i++;
-        } else if (args[i] === "--cdp" && args[i + 1]) {
-          cdpPort = parseInt(args[i + 1], 10);
-          i++;
-        }
-      }
-      await runChromeBridge(port, cdpPort);
-      break;
-    }
     case "activate":
     case "env":
       await activateCommand();

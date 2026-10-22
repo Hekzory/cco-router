@@ -14,7 +14,7 @@ sidebar_position: 2
 
 **使用 Docker 安装时无需 Node.js** —— 镜像自带运行时（当前为 Node 22 LTS）。
 
-仅在以下情况需要本地安装 Node.js：从 npm 安装 CLI、从源码运行，或使用 [Chrome 端侧桥接](/docs/server/guides/chrome-on-device)。此时最低要求为 **Node.js ≥ 22.19.0**，并由每个已发布包的 `engines` 字段强制约束：
+仅在以下情况需要本地安装 Node.js：从 npm 安装 CLI、或从源码运行。此时最低要求为 **Node.js ≥ 22.19.0**，并由每个已发布包的 `engines` 字段强制约束：
 
 | 包 | 最低 Node 版本 |
 | --- | --- |

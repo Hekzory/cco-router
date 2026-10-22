@@ -108,9 +108,7 @@ The core package includes transformers for:
 - **codex**: Codex (ChatGPT) backend API
 - **claude-auth**: Claude Pro/Max subscription OAuth
 - **antigravity-auth**: Google Antigravity (`cloudcode-pa`) OAuth + envelope
-- **cursor-sdk**: In-process Cursor Agent via `@cursor/sdk`
 - **qwen-auth**: Qwen Chat authentication (JWT-based)
-- **chrome-on-device**: Chrome built-in Gemini Nano (local, no API cost)
 - **vercel**: Vercel AI SDK format
 - **opencode-headers**: OpenCode header injection
 - **And more utility transformers**: `cleancache`, `customparams`, `enhancetool`, `forcereasoning`, `maxcompletiontokens`, `maxtoken`, `reasoning`, `sampling`, `streamoptions`, `tooluse`

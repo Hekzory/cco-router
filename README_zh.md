@@ -9,7 +9,7 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 
 - **自适应模型路由**：按场景路由请求，包括后台任务、思考、长上下文、网络搜索和图像工作流。
 - **工具调用与思考**：在不同 API 格式的提供商之间保留工具调用、工具结果和推理内容。
-- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Ollama、Gemini、Antigravity、Volcengine、SiliconFlow、Codex、Claude 订阅、Qwen、Chrome 端侧和 Cursor（SDK）。
+- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Gemini、Antigravity、Codex、Claude 订阅、Qwen。
 - **请求/响应转换**：使用 transformers 为不同提供商定制请求和响应。
 - **原生客户端协议**：通过同一路由器和回退管道接受 Anthropic Messages、OpenAI Chat Completions 和 OpenAI Responses 请求。
 - **动态模型切换**：在 Claude Code 中使用 `/model` 命令即时切换模型。
@@ -28,16 +28,11 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 - **代码质量**：代码库本地化（英文注释），改进错误处理，处理 Copilot 审查反馈。
 - **Gemini 稳定性与工具调用修复**：修正了 Gemini 请求体中 `thoughtSignature` 的位置（Gemini 3 要求将其作为 `functionCall` 部分的同级字段，且仅验证每个步骤的第一个此类部分）；过滤了出站 Gemini 请求中的合成 `ccr_` 占位符签名，防止 Gemini 500 错误；修复了 Anthropic 转换器中 `tool_result` 内容数组序列化问题，使模型接收纯文本而非 JSON 包裹的数组（解决了 Claude Code 中的"Error editing file"问题）；修复了 Fastify `onSend` 钩子，防止错误响应时出现未处理的 `invalid type 'object'` 拒绝。
 - **Codex (ChatGPT) 集成**：添加了用于 ChatGPT 后端 API (Responses API) 的 Codex 转换器，支持基于 OAuth 的身份验证（`ccr codex-auth`）和通过 `api_key: "at-..."` 的 PAT 认证，以及 SSE 流式传输、推理/思考内容、带网络搜索的工具调用和图片处理。
-- **Cursor SDK 集成**：添加了 `cursor-sdk` 转换器，通过 `@cursor/sdk` 在进程中运行 Cursor 模型。默认的 **bridge** 模式保持 Claude Code 作为工具宿主（拒绝 Cursor 内置工具）；支持 `plan` / `agent` 模式、`crsr_` / `CURSOR_API_KEY` 身份验证、`ccr model get cursor` 模型发现，以及 Docker 运行时安装 SDK 原生包。
 - **Claude 订阅集成**：添加了 `claude-auth` 支持，通过 OAuth (`ccr claude-auth`) 使用 Claude Pro 或 Max 订阅进行路由，使用 `claude-auth` + `Anthropic` 转换器链。
 - **Antigravity 集成**：添加了 Google Antigravity OAuth 支持（`ccr antigravity-auth`），使用 `antigravity-auth` + `gemini` 转换器链，目标为 Antigravity / `cloudcode-pa` API。支持该额度下的 Gemini 和 Claude 模型、思路签名往返/回退，以及针对 Gemini 后端 Claude 模型的 Claude 工具模式清理。需要 `gemini` 选项 `{"cachedContent": false}`，因为 Antigravity 没有 Google `cachedContents` 资源（保留默认值 `true` 会导致 404）。
 - **Qwen Chat 集成**：添加了 `qwen-auth` 转换器，用于 Qwen Chat 后端（`qwen.aikit.club/v1/chat/completions`），支持基于 JWT 的认证（`ccr qwen-auth`），用户粘贴从 `chat.qwen.ai` localStorage 复制的令牌，自动令牌轮换，以及去除 Qwen 注入到响应中的尾部 `<details>...</details>` 元数据块。
 - **DeepSeek 推理重放**：为 DeepSeek 模型（例如通过 OpenCode/ZenGo）实现了强制推理重放。DeepSeek 要求在后续请求中包含前次助手的推理内容——`reasoning` 转换器会自动重放先前轮次的推理输出。
 - **模型发现**：为任意 API 提供商启用了非交互式模型发现。使用 `ccr model get <provider>`，该工具自动获取远程模型，使用可配置路径解析自定义 JSON 结构，并将缺失的模型追加到本地配置，同时保留现有设置。
-- **Chrome 端侧模型**：添加了用于 Chrome 内置 Gemini Nano（约 4GB 本地模型）的 `chrome-on-device` 转换器。通过桥接进程（`ccr chrome-bridge`）与 Chrome 的 Prompt API 通信（通过 CDP）。使用 `responseConstraint` 实现结构化 JSON 输出（工具调用 + 文本），支持流式和非流式，暴露与 OpenAI 兼容的 `/v1/chat/completions` 端点，并用最小化工具系统提示替换 Claude Code 的系统提示。零 API 成本，零外部提供商延迟。
-  - **稳定性与提示**：在系统提示中实现了"OPERATIONAL OVERRIDE"以防止幻觉并强制遵守用户提供的路径。
-  - **停滞恢复**：为大量空白内容添加了分层重试机制：如果模型停滞（发出 1000+ 空白字符），桥接器会中止并重新尝试（无约束、提高温度——动态温度缩放）。
-  - **上下文感知**：为工具输出添加了标签（"Tool Result:"），并指示模型在再次调用工具前检查现有结果。
 
 ## 🚀 快速开始
 
@@ -47,7 +42,7 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 
 开始之前，请确保系统已安装以下内容：
 - **Docker**（推荐）：通过已发布的镜像运行路由器的首选方式。参见 [Docker 安装指南](https://docs.docker.com/get-docker/)。
-- **Node.js**（可选）：从源码运行、发布包或使用 **Chrome 端侧**桥接时需要。本 fork 要求 **Node.js ≥ 22.19.0**（`undici` 需要）。参见 [Node.js 下载](https://nodejs.org/)。
+- **Node.js**（可选）：从源码运行、或发布包时需要。本 fork 要求 **Node.js ≥ 22.19.0**（`undici` 需要）。参见 [Node.js 下载](https://nodejs.org/)。
 - **Claude Code**：参见 [官方快速入门指南](https://code.claude.com/docs/en/quickstart) 获取安装说明。
 
 #### 使用 Docker 快速启动
@@ -242,7 +237,7 @@ ccr model get gemini
 ccr model get openai
 ```
 
-`ccr model get <provider>` 会获取远程模型，然后提示追加缺失的模型并移除 API 不再返回的已配置模型。内置端点支持 `anthropic`/`claude`、`gemini`、`openai`、`codex` 和 `cursor`。其他提供商可以使用 `models_api_url` 加上 `models_response_format`（`listPath`、`idPath`、`stripPrefix`）来解析自定义 JSON 响应。
+`ccr model get <provider>` 会获取远程模型，然后提示追加缺失的模型并移除 API 不再返回的已配置模型。内置端点支持 `anthropic`/`claude`、`gemini`、`openai`、`codex`。其他提供商可以使用 `models_api_url` 加上 `models_response_format`（`listPath`、`idPath`、`stripPrefix`）来解析自定义 JSON 响应。
 
 > **另请参阅**：`docs/docs/server/guides/model-discovery.md` 和 `docs/docs/cli/commands/model-get.md`。
 >
@@ -297,12 +292,6 @@ Codex 提供商支持两种身份验证模式：
 
 > **另请参阅**：完整的 Codex 设置、两种身份验证模式、提供商配置和故障排查见 `docs/docs/server/guides/codex.md`。
 
-#### Cursor 提供商身份验证
-
-Cursor 提供商通过官方 `@cursor/sdk` 在进程内运行模型（无浏览器 OAuth CLI）。认证从提供商 `api_key`（以 `crsr_` 开头）解析，然后是 `CURSOR_API_KEY`。默认 **bridge** 模式让 Claude Code 作为工具宿主；Cursor 内置工具在隔离工作区中被拒绝。使用 `ccr model get cursor` 发现模型。
-
-> **另请参阅**：完整的 Cursor 设置、bridge/plan/agent 模式和配置见 `docs/docs/server/guides/cursor.md`。
-
 #### Claude 订阅身份验证
 
 通过 OAuth 将 Claude Code 路由到您的 Claude Pro 或 Max 订阅：
@@ -326,21 +315,6 @@ ccr qwen-auth
 CCR 服务器在 `/qwen/auth` 提供一个认证页面，支持小书签或手动粘贴。token 会被校验、保存到 `~/.claude-code-router/qwen_auth.json` 并自动刷新。Qwen 提供商需要 `qwen-auth` + `reasoning` + `OpenAI` transformer 链。
 
 > **另请参阅**：完整的 Qwen 设置和提供商配置见 `docs/docs/server/guides/qwen.md`。
-
-#### Chrome 端侧桥接
-
-通过宿主机侧的桥接进程使用 Chrome 内置的 Gemini Nano（约 4GB 本地模型），零 API 成本：
-
-```bash
-ccr chrome-bridge            # 默认：端口 3457，CDP 9222
-ccr chrome-bridge --port 3457 --cdp 9222
-```
-
-桥接通过 CDP 连接 Chrome 的 Prompt API，维护持久的模型会话，并在 `127.0.0.1:3457` 暴露 OpenAI 兼容 API（`/v1/chat/completions`）。它用极简的面向工具的提示词替换 Claude Code 的系统提示词，并使用 `responseConstraint`（JSON Schema）强制输出结构化的 `{text, tool_calls[]}`。
-
-**前置要求**：启用 `chrome://flags/#optimization-guide-on-device-model` 和 `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input`，重启 Chrome，并等待约 4GB 模型下载完成。
-
-> **Docker 注意**：桥接必须运行在 Docker **宿主机**上，而不是容器内 — 请将提供商主机设置为 `http://host.docker.internal:3457`。完整的设置、提供商配置、特性和限制见 `docs/docs/server/guides/chrome-on-device.md`。
 
 ### 6. 预设管理
 
@@ -394,7 +368,7 @@ eval "$(ccr activate)"
 **内置 Transformers：**
 
 - `Anthropic` — 原样透传到 Anthropic 端点。`OpenAI` — 注册 `/v1/chat/completions` 路由（请求体已是 OpenAI 格式）。
-- 提供商适配器：`deepseek`、`groq`、`mistral`、`openrouter`、`gemini` / `vertex-gemini`、`codex`、`claude-auth`、`antigravity-auth`、`qwen-auth`、`cursor-sdk`、`chrome-on-device`。
+- 提供商适配器：`deepseek`、`groq`、`mistral`、`openrouter`、`gemini` / `vertex-gemini`、`codex`、`claude-auth`、`antigravity-auth`、`qwen-auth`。
 - `maxtoken` — 设置特定的 `max_tokens`。`tooluse` — 通过 `tool_choice` 优化工具使用。`reasoning` — 跨轮次回放提供商的 `reasoning_content`。`sampling` — 映射 `temperature` / `top_p` / `top_k` / `repetition_penalty`。`enhancetool` — 为工具调用参数添加容错层（会使工具调用信息不再流式传输）。`cleancache` — 清除 `cache_control`。`customparams` — 注入自定义请求参数。
 - 实验性 gist/CLI 集成：`gemini-cli`、`chutes-glm`、`qwen-cli`、`rovo-cli`。
 
@@ -453,19 +427,10 @@ CCR 会自动将 Claude Code 的 Anthropic 缓存意图转换为每个上游的�
 - OpenRouter 使用粘性 `session_id` 路由加模型原生缓存。Vercel AI Gateway 接收 `providerOptions.gateway.caching: "auto"`。
 - Mistral 和 Cerebras 接收原生 `prompt_cache_key` 值。Qwen/DashScope 接收最终内容缓存标记。DeepSeek、Groq 和 Vertex OpenAI 保留其原生隐式缓存。
 - Gemini 和 Vertex Gemini 使用隐式缓存，并为足够大的稳定系统/工具前缀创建/复用原生 CachedContent 资源。
-- Cursor SDK 和 Chrome 端侧复用稳定的原生会话。
 
 不兼容提供商的缓存字段只在转换后移除。上游上报的缓存读/写用量会转换回 Anthropic 的 `cache_read_input_tokens` 和 `cache_creation_input_tokens`，供 Claude Code 使用。
 
 参见[实现计划与评审](tasks/caching-plan.md)了解提供商矩阵和验证范围。
-
-## Status Line（Beta）
-
-为了在运行时更好地监控 claude-code-router 的状态，v1.0.40 版本内置了 statusline 工具，您可以在 UI 中启用。
-![statusline-config.png](blog/images/statusline-config.png)
-
-效果如下：
-![statusline](blog/images/statusline.png)
 
 ## 🤖 GitHub Actions
 
@@ -532,5 +497,4 @@ jobs:
 ## 📝 延伸阅读
 
 - [Codex API](https://developers.openai.com/codex/sdk) — `codex` transformer 使用的 ChatGPT 后端 API 的开发者文档（OAuth PKCE、Responses API、流式输出、工具调用）
-- [Chrome Prompt API](https://developer.chrome.com/docs/ai/prompt-api) — `chrome-on-device` transformer 和桥接使用的端侧 Gemini Nano API
-- [Provider 集成经验](tasks/lessons.md) — LLM 提供商集成的宝贵经验（DeepSeek、Mistral、Gemini、Codex、Gemini Nano）
+- [Provider 集成经验](tasks/lessons.md) — LLM 提供商集成的宝贵经验（DeepSeek、Mistral、Gemini、Codex）

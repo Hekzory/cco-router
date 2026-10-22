@@ -15,24 +15,6 @@
   ],
   "Providers": [
     {
-      "name": "siliconflow",
-      "api_base_url": "https://api.moonshot.cn/v1/chat/completions",
-      "api_key": "sk-",
-      "models": [
-        "kimi-k2-0711-preview"
-      ],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 130000
-            }
-          ]
-        ]
-      }
-    },
-    {
       "name": "kimi",
       "api_base_url": "https://api.moonshot.cn/v1/chat/completions",
       "api_key": "sk-",
@@ -110,14 +92,6 @@
       ]
     },
     {
-      "name": "ollama",
-      "api_base_url": "http://localhost:11434/v1/chat/completions",
-      "api_key": "ollama",
-      "models": [
-        "qwen2.5-coder:latest"
-      ]
-    },
-    {
       "name": "gemini",
       "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
       "api_key": "",
@@ -128,20 +102,6 @@
       "transformer": {
         "use": [
           "gemini"
-        ]
-      }
-    },
-    {
-      "name": "volcengine",
-      "api_base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      "api_key": "sk-xxx",
-      "models": [
-        "deepseek-v3-250324",
-        "deepseek-r1-250528"
-      ],
-      "transformer": {
-        "use": [
-          "deepseek"
         ]
       }
     },

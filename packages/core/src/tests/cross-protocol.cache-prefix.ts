@@ -5,13 +5,11 @@
  */
 import assert from "node:assert/strict";
 import { AnthropicTransformer } from "../transformer/anthropic.transformer";
-import { ChromeOnDeviceTransformer } from "../transformer/chrome-on-device.transformer";
 import { CodexTransformer } from "../transformer/codex.transformer";
 import { GeminiTransformer } from "../transformer/gemini.transformer";
 import { OpenAIResponsesTransformer } from "../transformer/openai.responses.transformer";
 import { OpenAITransformer } from "../transformer/openai.transformer";
 import { OpenrouterTransformer } from "../transformer/openrouter.transformer";
-import { TooluseTransformer } from "../transformer/tooluse.transformer";
 import { buildRequestBody as buildMistralBody } from "../utils/mistral.util";
 
 const logger = { debug() {}, info() {}, warn() {}, error() {} } as any;
@@ -126,12 +124,12 @@ async function toAnthropic(unified: any) {
   return result.body;
 }
 
-async function toResponses(unified: any, model = "grok-4.6") {
+async function toResponses(unified: any, model = "responses-model") {
   const tf = new OpenAIResponsesTransformer();
   (tf as any).logger = logger;
   return tf.transformRequestIn(
     { ...structuredClone(unified), model },
-    { name: "xai-supergrok", baseUrl: "https://api.x.ai/v1" },
+    { name: "responses-provider", baseUrl: "https://responses.example.test/v1" },
     sessionCtx()
   );
 }
@@ -183,24 +181,6 @@ async function toGemini(unified: any) {
     sessionCtx()
   );
   return result.body;
-}
-
-async function applyChromeTooluse(unified: any) {
-  let requestBody = structuredClone(unified);
-  let config: any = {};
-  const chrome = await new ChromeOnDeviceTransformer().transformRequestIn(
-    requestBody,
-    { name: "chrome-nano", baseUrl: "http://127.0.0.1:3457" },
-    sessionCtx()
-  );
-  requestBody = chrome.body;
-  config = chrome.config;
-  requestBody = await new TooluseTransformer().transformRequestIn(
-    requestBody,
-    {},
-    sessionCtx()
-  );
-  return { body: requestBody, config };
 }
 
 function hasEphemeral(value: unknown): boolean {
@@ -333,31 +313,11 @@ async function testMistralAndGeminiPrefix() {
   }
 }
 
-async function testChromeTooluseStableSession() {
-  const short = await applyChromeTooluse(await inboundConversation());
-  const long = await applyChromeTooluse(await inboundConversation("continue"));
-  assert.equal(
-    short.config.headers["x-ccr-session-id"],
-    long.config.headers["x-ccr-session-id"]
-  );
-  assert.equal(json(short.body).includes("cache_control"), false);
-  const reminderCount = (messages: any[]) =>
-    messages.filter(
-      (m: any) =>
-        m.role === "system" &&
-        typeof m.content === "string" &&
-        m.content.includes("Tool mode is active")
-    ).length;
-  assert.equal(reminderCount(short.body.messages), 1);
-  assert.equal(reminderCount(long.body.messages), 1);
-}
-
 async function main() {
   await testAnthropicPrefixAndBreakpoints();
   await testResponsesAndCodexPrefix();
   await testChatCompatAndOpenRouter();
   await testMistralAndGeminiPrefix();
-  await testChromeTooluseStableSession();
   console.log("cross-protocol.cache-prefix: PASS");
 }
 

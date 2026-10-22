@@ -103,9 +103,7 @@ interface Transformer {
 - **codex**：Codex（ChatGPT）后端 API
 - **claude-auth**：Claude Pro/Max 订阅 OAuth
 - **antigravity-auth**：Google Antigravity（`cloudcode-pa`）OAuth + 封包
-- **cursor-sdk**：通过 `@cursor/sdk` 进程内运行 Cursor Agent
 - **qwen-auth**：Qwen Chat 认证（基于 JWT）
-- **chrome-on-device**：Chrome 内置 Gemini Nano（本地运行，无需 API 费用）
 - **vercel**：Vercel AI SDK 格式
 - **opencode-headers**：OpenCode 请求头注入
 - **以及其他工具转换器**：`cleancache`、`customparams`、`enhancetool`、`forcereasoning`、`maxcompletiontokens`、`maxtoken`、`reasoning`、`sampling`、`streamoptions`、`tooluse`

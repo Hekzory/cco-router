@@ -83,7 +83,7 @@ export function compileTransformerPlan(
       .map((t) => transformerKey(t) || "<unnamed>")
       .join(", ");
     throw new Error(
-      `Ambiguous transformer configuration: multiple transport owners after composition (${names}). Keep exactly one of opencode-headers, antigravity-auth, or cursor-sdk (or other ownsTransport transformers) in the combined provider/model chain.`
+      `Ambiguous transformer configuration: multiple transport owners after composition (${names}). Keep exactly one of opencode-headers or antigravity-auth (or other ownsTransport transformers) in the combined provider/model chain.`
     );
   }
 
@@ -127,7 +127,6 @@ export function isExactProtocolRequestPlan(
 }
 
 const WIRE_SAFE_MIDDLEWARE = new Set([
-  "xai-auth",
   "opencode-headers",
   "qwen-auth",
   "codex",

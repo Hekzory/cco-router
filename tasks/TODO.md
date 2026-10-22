@@ -1,25 +1,4 @@
-# Provider Bridges: Future Optimizations
-
-This document tracks potential improvements and known unknowns for the provider bridges. Most of it concerns `chrome-device-bridge.ts` (Gemini Nano).
-
-## 📖 Core Concepts & Mechanics
-
-### Whitespace Stalling (`MAX_WS_STALL`)
-Gemini Nano can enter deterministic loops when emitting highly structured content (e.g., deeply indented code), producing an endless stream of whitespace.
-- **Handling**: The bridge monitors `nonWsChars`. If `stallChars` exceeds `MAX_WS_STALL` (currently 1000) without any non-whitespace content, the bridge calls `controller.abort()` to kill the session.
-- **Recovery**: This triggers a `truncated: true` signal to the server, which initiates a fallback retry without `responseConstraint` and with a dynamic temperature increase.
-
-## 🛠 Potential Optimizations
-
-### 1. Time-Based Stall Detection
-- [ ] Implement hybrid stall detection (time + char count) to prevent premature aborts on indented files.
-- **Problem**: The current `MAX_WS_STALL` is based purely on the number of whitespace characters (1000). Highly indented files (e.g., deeply nested JSON or Python) might trigger this abort prematurely.
-- **Potential Fix**: Implement a hybrid stall detection mechanism that combines the character count with a time-based check (e.g., if no non-whitespace content is produced for 15-20 seconds, regardless of the char count).
-
-### 2. Dynamic Top-K Scaling
-- [ ] Implement Top-K increase during fallback retries to break deterministic loops.
-- **Problem**: We currently only increase temperature during fallback retries. In some deterministic loops, the model may be stuck between a few high-probability tokens.
-- **Potential Fix**: Increase `DEFAULT_TOPK` (e.g., from 40 to 60) during the fallback retry (alongside the temperature increase) to provide the model with a wider selection of tokens to break the loop.
+# Router: Future Improvements
 
 ## 🗂 Core: prompt-cache policy
 
@@ -30,13 +9,13 @@ Gemini Nano can enter deterministic loops when emitting highly structured conten
 - **Touch**: `packages/core/src/utils/cacheControl.ts`, `openai.util.ts`, provider transformers that call `applyRawAnthropicPromptCaching` / `injectPromptCaching` / OpenRouter Gemini content markers.
 - **Reference**: LiteLLM `integrations/anthropic_cache_control_hook.py`; pipeline notes in the CCR vs LiteLLM comparison.
 
-## ⚡ Fast mode (Codex + Cursor)
+## ⚡ Fast mode (Codex)
 
 ### 1. Design client-selectable fast mode
-- [ ] Design one CCR-wide way for a client to opt into a provider's fast / priority tier, then implement it for Codex and Cursor.
-- **Today**: fast is never selected. Codex: Responses inbound rejects `service_tier` (`utils/openai.responses.util.ts`), CCR adds none, and `ccr codex-config` publishes `service_tiers: []`. Cursor: `cursor-sdk/model-selection.ts` always picks `fast=false`.
-- **Upstream shapes**: Codex catalog `service_tiers` (`priority`, "Fast"; `gpt-6-sol` / `gpt-6-luna` default to it) sent as `service_tier`; Cursor catalog `fast` parameter on parameterized models (Grok 4.7).
-- **Open questions**: how a client asks for it per protocol (Responses/Chat `service_tier`, an Anthropic equivalent, a model suffix), whether configs may set a per-provider/per-route default, usage/cost reporting for the higher tier, and how the Cursor session remint rule treats a fast toggle.
+- [ ] Design one CCR-wide way for a client to opt into a provider's fast / priority tier, then implement it for Codex.
+- **Today**: fast is never selected. Codex: Responses inbound rejects `service_tier` (`utils/openai.responses.util.ts`), CCR adds none, and `ccr codex-config` publishes `service_tiers: []`.
+- **Upstream shapes**: Codex catalog `service_tiers` (`priority`, "Fast"; `gpt-6-sol` / `gpt-6-luna` default to it) sent as `service_tier`.
+- **Open questions**: how a client asks for it per protocol (Responses/Chat `service_tier`, an Anthropic equivalent, a model suffix), whether configs may set a per-provider/per-route default, usage/cost reporting for the higher tier.
 
 ## 🔒 Temporary security overrides (`pnpm-workspace.yaml`)
 
@@ -46,13 +25,6 @@ Every override is scoped to an exact `parent@version>child` dependency edge, so 
 bare package name is never force-resolved across the whole graph. When an entry
 stops matching after an upstream bump, pnpm reports it as unused — that is the
 signal to delete it, not to widen the selector.
-
-### 1. `@connectrpc/connect-node@1.7.0>undici` → `^8.9.0`
-- [ ] Drop when `@cursor/sdk` no longer pulls vulnerable `undici@5.x`.
-- **Why**: `@cursor/sdk` → `@connectrpc/connect-node@1.x` declares `undici: ^5.28.4`. Connect-node's only undici API is `Headers`, and it only uses that polyfill on Node `<18` (dead on our Node `>=22.19`). The package must still resolve at module load time, so point this edge at the same maintained undici 8 range that core already uses rather than installing a second major.
-- **Compatibility**: undici 8 still exports `Headers` from its package root; the complete Cursor SDK test suite passes with connect-node resolving to undici 8.
-- **Scope**: the connect-node edge only; pnpm deduplicates it with `@caeliq/llms`'s direct `undici@^8.9.0`.
-- **Exit**: Cursor ships SDK on `@connectrpc/connect-node@2.x` (no undici dep) or connect-node 1.x raises its undici range; then delete the override and re-audit.
 
 ### 1b. `@ai-sdk/provider-utils@4.0.54>undici` → `^8.9.0`
 - [ ] Drop when `@ai-sdk/provider-utils` raises its `undici` range to `^8` (or removes the declared dep).
@@ -97,19 +69,16 @@ signal to delete it, not to widen the selector.
 
 ### 6. Direct-dependency currency + residual advisories (reviewed 2026-09-24)
 - `adm-zip` `^0.6.0` → `^0.6.1` in cli/server/shared: patch release clears both advisories (symlink overwrite + uncompressed-size DoS). Direct dep, no override needed.
-- `@cursor/sdk` `^1.0.30` → `^1.0.32` in root/cli/core/server: patch line, purely additive (new `SDKToolAnnotations` / `SteerAckOutcome` exports, optional `steer()` / `systemPrompt`). Tarball-diffed 1.0.30 vs 1.0.32, no signature changes; `@connectrpc/connect-node` stays 1.7.0 so the undici edge still matches.
 - **Residual (accepted, docs-only, major-split — needs opt-in to force)**: `joi@17.13.4` (2× low, fix = joi 18), `js-yaml@4.3.1` (1× high, fix = js-yaml 5). Both live only under `docs>@docusaurus/*` (build-time toolchain, never shipped to users); forcing the majors would break docusaurus 3.10.2's declared ranges. Revisit when docusaurus widens its ranges.
 - **AI SDK / ai / zod same-major rollup (2026-09-24)**: `ai` 6.0.258→6.0.290, `@ai-sdk/anthropic` 3.0.111→3.0.122, `@ai-sdk/openai` 3.0.97→3.0.117 (cli+server exact pins), `zod` 4.4.3→4.6.5 (cli exact; server `^4.4.3` follows), `@ai-sdk/react` 3.0.261→3.0.293 via `pnpm --filter @caeliq/ccr-ui update` (pairs ai 6.0.290 + provider-utils 4.0.54; needed a `minimumReleaseAgeExclude` entry for `3.0.293`). Collapses `ai`, `@ai-sdk/gateway`, `@ai-sdk/provider-utils` to one version each and keeps the §1b undici edge matching. AI SDK 3.x peer range (`zod ^3.25.76 || ^4.1.8`) admits zod 4.6.5. Full suite (typecheck/lint/test/build/docs) green after the bump.
 - **Left alone (intentional dual majors)**: `@jsonjoy/*` 1.x vs 17.x, `@sindresorhus/is` 4/5, `@types/express` 4/5 (+ serve-static/send), `@types/unist` 2/3, `css-tree` 2.2/2.3 (see §4 rejection). (`postcss-selector-parser` 6/7 was unified to 7.1.6 in the 2026-10-06 review, see §7.)
 
 ### 7. Package review 2026-10-06 (full scope: security + strong + high-risk majors)
 - Result: `pnpm audit` 38 advisories (3 critical / 13 high / 16 moderate / 6 low) → **1 high** (`braces@3.0.3`, no patched release exists upstream — accepted residual, docs-build-time only via `micromatch`). `pnpm dedupe --check` passes. 132 true multi-version packages inventoried; intentional duals (express 4/5 + `@types/*` pairs, webpack/docusaurus toolchains, `@jsonjoy/*` 1/17, `commander`, `zod` 3 vs 4 v3-leg) left alone.
-- Stale-pin refresh (no override changes needed — parent ranges already admitted the patched releases): `undici` 8.10.1→8.11.2, `fastify` 5.12.1→5.12.5, `proxy-addr` 2.0.7→2.0.8, `brace-expansion` 5.0.9→5.0.12, `dompurify` 3.4.13→3.4.16, `ip-address` 10.5.0→10.7.3, `compression`→1.8.2, `http-cache-semantics`→4.3.0, `@fastify/busboy`→3.2.2, `source-map-js`→1.2.2. `zod` 4.4.3→4.6.5 (`@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `openai@7.5.0`, `zod-to-json-schema` all declare open `^4` ranges); v3 leg (`@cursor/sdk`, `chromium-bidi`) stays.
+- Stale-pin refresh (no override changes needed — parent ranges already admitted the patched releases): `undici` 8.10.1→8.11.2, `fastify` 5.12.1→5.12.5, `proxy-addr` 2.0.7→2.0.8, `brace-expansion` 5.0.9→5.0.12, `dompurify` 3.4.13→3.4.16, `ip-address` 10.5.0→10.7.3, `compression`→1.8.2, `http-cache-semantics`→4.3.0, `@fastify/busboy`→3.2.2, `source-map-js`→1.2.2. `zod` 4.4.3→4.6.5 (`@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `openai@7.5.0`, `zod-to-json-schema` all declare open `^4` ranges).
 - Floor raises: `ajv@8.20.0>fast-uri` `^3.1.7`→`^3.1.8`, `@fastify/ajv-compiler` + `fast-json-stringify` `^4.1.4`→`^4.1.5` (new host-confusion/mailto advisories on both lines).
 - New exact-edge overrides (compat evidence in `pnpm-workspace.yaml` comments):
   - `'@docusaurus/core@3.10.2>tinypool'` → `^2.2.0` (critical RCE advisories; docusaurus declares `^1.0.2`). Verified against tinypool 2.2.0 types (default export, all used options, `run`/`destroy`) and a `build:docs` run with `DOCUSAURUS_SSG_WORKER_THREAD_COUNT=2` forcing pool construction. Drop when docusaurus supports tinypool 2.
   - `'mermaid@11.16.1>katex'` → `^0.19.0` (mermaid pins `^0.16.45`; only uses stable `render`/`renderToString`).
   - Six `postcss-selector-parser` → `^7.1.6` edges (`postcss-calc`, `postcss-minify-selectors`, `postcss-merge-rules`, `postcss-unique-selectors`, `stylehacks`, `postcss-discard-unused`) plus the `@tailwindcss/typography` retarget: all declare `^6` and use only `parser(cb)` / `processSync` / `walk` / `astSync` / constructors, all present in v7 (7.0.0 changed insert-during-iteration only). The remaining preset-env/csstools legs moved via their own `^7`-admitting ranges on refresh — `postcss-selector-parser` is now single-version (7.1.6).
-- `@cursor/sdk` `^1.0.32` → `^1.0.36` in root/cli/core/server: patch line, purely additive (new optional executor-override / `sessionId` / `metadata` / `subagentInherit` fields; tarball-diffed .d.ts, no signature changes). Still pulls `@connectrpc/connect-node@1.7.0`, so the §1 undici edge still matches.
 - Deferred (noted, not forced): `ai` 7.x / `@ai-sdk/*` 4.x majors, `mermaid` 12, `monaco-editor` 0.57, `@google/genai` 2.18→2.27, `@modelcontextprotocol/sdk` 1.30→1.32, `openai` 7.5→7.28 (in-range but 23 minors — bump deliberately for a dedicated review), same-major tight-pin pairs (`mime-db`, `mime-types` 2.x, `ms`, `range-parser`, `cookie-signature`, `iconv-lite`, `source-map`, `babel-plugin-polyfill-corejs3` — parents pin exact/tilde ranges; override value does not justify the compat work).
-- Registry privacy test (`cursor-sdk.inbound-session.ts` › `testRegistryStoresHashesAndSkipsUnchangedWrites`): previously scanned the raw file for `4711`, which collided with `updatedAt` timestamps. Now walks parsed JSON string fields only.

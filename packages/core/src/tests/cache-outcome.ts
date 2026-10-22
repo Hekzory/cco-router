@@ -4,7 +4,6 @@ import {
   buildCachePrediction,
   classifyCacheOutcome,
   predictAnthropicEphemeral,
-  predictCursorConversation,
   predictGeminiCachedContent,
   predictOpenAiPrefix,
   resolveCacheFamily,
@@ -65,17 +64,12 @@ function brokenDiff(): CachePrefixDiff {
 
 // --- resolveCacheFamily ---
 {
-  assert.equal(resolveCacheFamily({ provider: "cursor" }), "cursor_conversation");
-  assert.equal(
-    resolveCacheFamily({ provider: "openai", cursorLifecycle: { action: "send-incremental" } }),
-    "cursor_conversation"
-  );
   assert.equal(resolveCacheFamily({ provider: "deepseek" }), "deepseek_prefix");
   assert.equal(resolveCacheFamily({ provider: "anthropic" }), "anthropic_ephemeral");
   assert.equal(resolveCacheFamily({ provider: "gemini" }), "gemini_cached_content");
   assert.equal(
     resolveCacheFamily({
-      provider: "xai",
+      provider: "openai-compatible",
       body: { messages: [{ role: "user", content: "hi" }], prompt_cache_key: "ccr_x" },
     }),
     "openai_prefix"
@@ -172,63 +166,8 @@ function brokenDiff(): CachePrefixDiff {
   assert.equal(classifyCacheOutcome(rotated, 0), "expected-miss");
 }
 
-// --- Cursor lifecycle ---
-{
-  const incremental = predictCursorConversation({
-    lifecycle: { sessionKey: "sk", action: "send-incremental", reason: "strictly-aligned-idle-session" },
-    diff: brokenDiff(), // host prefix broken must NOT flip prediction
-  });
-  assert.equal(incremental.predictedHit, true);
-  assert.equal(incremental.hostPrefixIntact, false);
-  assert.equal(classifyCacheOutcome(incremental, 0.6), "hit");
-
-  const resume = predictCursorConversation({
-    lifecycle: { sessionKey: "sk", action: "resume-parked", reason: "exact-parked-tool-results" },
-  });
-  assert.equal(resume.predictedHit, true);
-
-  const softDivergent = predictCursorConversation({
-    lifecycle: {
-      sessionKey: "sk",
-      action: "send-incremental",
-      reason: "divergent-context-alignment",
-    },
-    diff: brokenDiff(),
-  });
-  assert.equal(softDivergent.predictedHit, true);
-  assert.equal(softDivergent.reason, "divergent-context-alignment");
-  assert.equal(classifyCacheOutcome(softDivergent, 0.3), "hit");
-
-  const retire = predictCursorConversation({
-    lifecycle: {
-      sessionKey: "sk",
-      action: "retire-and-replay-full",
-      reason: "poisoned-session",
-    },
-    diff: brokenDiff(),
-  });
-  assert.equal(retire.predictedHit, false);
-  assert.equal(retire.reason, "poisoned-session");
-  assert.equal(classifyCacheOutcome(retire, 0), "expected-miss");
-  assert.equal(classifyCacheOutcome(retire, 0.3), "partial");
-
-  const fresh = predictCursorConversation({
-    lifecycle: { sessionKey: "sk", action: "send-full", reason: "unused-session" },
-  });
-  assert.equal(fresh.firstTurn, true);
-  assert.equal(classifyCacheOutcome(fresh, 0), "cold");
-}
-
 // --- buildCachePrediction dispatch ---
 {
-  const cursor = buildCachePrediction({
-    provider: "cursor",
-    cursorLifecycle: { sessionKey: "sk", action: "send-incremental" },
-    diff: brokenDiff(),
-  });
-  assert.equal(cursor.family, "cursor_conversation");
-  assert.equal(cursor.predictedHit, true);
-
   const openai = buildCachePrediction({
     provider: "opencode",
     body: { messages: [], prompt_cache_key: "ccr_x" },

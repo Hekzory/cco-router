@@ -121,7 +121,7 @@ FIM 端点上的裸模型名经 `Router.fim` 解析，再回退到 `Router.defau
 {
   "Router": {
     "default": "deepseek,deepseek-chat",
-    "background": "ollama,qwen2.5-coder:latest",
+    "background": "gemini,gemini-2.5-flash",
     "think": "deepseek,deepseek-reasoner",
     "longContext": "openrouter,google/gemini-2.5-pro-preview",
     "longContextThreshold": 60000,
@@ -133,7 +133,7 @@ FIM 端点上的裸模型名经 `Router.fim` 解析，再回退到 `Router.defau
       "openrouter,anthropic/claude-sonnet-4"
     ],
     "background": [
-      "ollama,qwen2.5-coder:latest"
+      "deepseek,deepseek-chat"
     ],
     "think": [
       "openrouter,anthropic/claude-3.7-sonnet:thinking"
@@ -245,7 +245,7 @@ FIM 端点上的裸模型名经 `Router.fim` 解析，再回退到 `Router.defau
 ```json
 {
   "Router": {
-    "background": "volcengine,deepseek-v3-250324"
+    "background": "deepseek,deepseek-chat"
   },
   "fallback": {
     "background": [

@@ -39,9 +39,6 @@ const baseConfig: esbuild.BuildOptions = {
     "tiktoken",
     "@caeliq/ccr-shared",
     "lru-cache",
-    // Native/platform runtime — must resolve from node_modules at runtime.
-    "@cursor/sdk",
-    "@cursor/sdk/*",
   ],
 };
 
@@ -50,6 +47,8 @@ const baseConfig: esbuild.BuildOptions = {
 function generateTypeDeclarations() {
   console.log("Generating type declarations...");
   const dtsRoot = path.join(baseUrl, "dist");
+  // Removed source modules must not survive as stale published declarations.
+  fs.rmSync(dtsRoot, { recursive: true, force: true });
   execSync(
     "tsc --project tsconfig.json --declaration --emitDeclarationOnly --outDir dist",
     { cwd: baseUrl, stdio: "inherit" }

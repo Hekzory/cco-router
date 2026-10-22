@@ -13,7 +13,7 @@ Run Claude Code Router with the published Docker image.
 
 **Node.js is not required for the Docker install** — the image ships its own runtime (currently Node 22 LTS).
 
-You only need Node.js locally to install the CLI from npm, run from source, or use the [Chrome On-Device bridge](/docs/server/guides/chrome-on-device). In those cases the minimum is **Node.js ≥ 22.19.0**, enforced by the `engines` field of every published package:
+You only need Node.js locally to install the CLI from npm, or run from source. In those cases the minimum is **Node.js ≥ 22.19.0**, enforced by the `engines` field of every published package:
 
 | Package | Minimum Node |
 | --- | --- |

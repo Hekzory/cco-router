@@ -48,7 +48,7 @@ import { applyRawAnthropicPromptCaching } from "../utils/cacheControl";
 import { resolveCachePrefixConversationId } from "../utils/cache-prefix-debug";
 import {
   firstSubstantiveUserText,
-  isStatuslinePollTurn,
+  isHarnessStatusPollTurn,
 } from "../utils/nested-agent";
 
 function isOpencodeProvider(provider: any): boolean {
@@ -464,7 +464,7 @@ async function handleTransformerEndpoint(
     }
 
     // Fetch start/headers are stamped by sendUnifiedRequest or by ownsTransport
-    // transformers (cursor-sdk). Do not mark start here — that would freeze the
+    // transformers that own their transport. Do not mark start here — that would freeze the
     // stamp before the real POST and make upstreamTtftMs include auth/SDK setup.
     const response = await sendRequestToProvider(
       requestBody,
@@ -1306,8 +1306,8 @@ function recordClientCachePrefix(
   body: any
 ): void {
   if (!req) return;
-  if (isStatuslinePollTurn(body || {})) {
-    // Statusline polls share the session id but are not a real turn. Committing
+  if (isHarnessStatusPollTurn(body || {})) {
+    // Harness status polls share the session id but are not a real turn. Committing
     // them as the baseline makes the next tool result look like a 25k-token miss.
     req._omitCachePrefix = true;
     return;
@@ -1355,14 +1355,12 @@ async function sendRequestToProvider(
     if (context?.req?._omitCachePrefix) {
       return response;
     }
-    const cursorLifecycle = context?.req?._cursorCacheLifecycle ?? null;
     const cacheDiff = logOutboundCacheStructure(requestBody, {
       ...debugOpts,
       stage: "wire",
       responseStatus: response?.status,
       clientStageDiff: context?.req?._cachePrefixClientDiff,
       outboundBody: requestBody,
-      cursorLifecycle,
       cacheAffinity: {
         sessionId: config?.headers?.["session-id"],
         threadId: config?.headers?.["thread-id"],
@@ -1374,7 +1372,6 @@ async function sendRequestToProvider(
       clientStageDiff: context?.req?._cachePrefixClientDiff,
       cacheDiff,
       outboundBody: requestBody,
-      cursorLifecycle,
       direction: "provider→ccr",
       maxBytes: resolveLogBodyMaxBytes(fastify.configService),
       rawEvents: shouldLogSSEEvents(fastify.configService),

@@ -9,7 +9,6 @@ import {
   putPersistedSession,
   resetSessionRegistryForTests,
   SESSION_REGISTRY_TTL_MS,
-  updatePersistedSessions,
 } from "../session-registry";
 
 const dir = mkdtempSync(join(tmpdir(), "ccr-session-registry-"));
@@ -20,39 +19,6 @@ try {
   assert.equal(getPersistedSession("zen", "conv-1", 2000)?.sessionId, "ses_abc");
   resetSessionRegistryForTests();
   assert.equal(getPersistedSession("zen", "conv-1", 2000)?.sessionId, "ses_abc");
-
-  // Families are isolated.
-  assert.equal(getPersistedSession("cursor", "conv-1", 2000), undefined);
-  putPersistedSession(
-    "cursor",
-    "key-1",
-    {
-      sessionId: "agent-1",
-      workspaceDir: "/w",
-      model: "m",
-      modelFingerprint: "grok-4.7|context=256k,fast=false,reasoning_effort=high",
-    },
-    1000
-  );
-  assert.deepEqual(getPersistedSession("cursor", "key-1", 2000), {
-    sessionId: "agent-1",
-    workspaceDir: "/w",
-    model: "m",
-    modelFingerprint: "grok-4.7|context=256k,fast=false,reasoning_effort=high",
-    updatedAt: 1000,
-  });
-  resetSessionRegistryForTests();
-  assert.equal(
-    getPersistedSession("cursor", "key-1", 2000)?.modelFingerprint,
-    "grok-4.7|context=256k,fast=false,reasoning_effort=high"
-  );
-  const afterStartup = JSON.parse(
-    readFileSync(join(dir, "ccr-sessions.json"), "utf-8")
-  );
-  assert.equal(
-    afterStartup.families.cursor["key-1"].modelFingerprint,
-    "grok-4.7|context=256k,fast=false,reasoning_effort=high"
-  );
 
   // Overwrite wins (Zen re-roll then re-mint path).
   putPersistedSession("zen", "conv-1", { sessionId: "ses_def" }, 3000);
@@ -74,8 +40,7 @@ try {
   // Prune drops expired, keeps fresh.
   putPersistedSession("zen", "fresh", { sessionId: "ses_f" }, 5000);
   putPersistedSession("zen", "stale", { sessionId: "ses_s" }, 1000);
-  // "stale" plus the earlier cursor/key-1 (updatedAt 1000) both expire.
-  assert.equal(pruneSessionRegistry(1000 + SESSION_REGISTRY_TTL_MS + 1), 2);
+  assert.equal(pruneSessionRegistry(1000 + SESSION_REGISTRY_TTL_MS + 1), 1);
   assert.equal(
     getPersistedSession("zen", "fresh", 1000 + SESSION_REGISTRY_TTL_MS + 1)?.sessionId,
     "ses_f"
@@ -114,32 +79,18 @@ try {
   assert.ok(!("gone" in pruned.families.zen));
   assert.ok("live" in pruned.families.zen);
 
-  // Batched update: puts and removes land in one write.
-  putPersistedSession("cursor-inbound", "short", { sessionId: "ccrs_1" }, 7000);
-  updatePersistedSessions(
-    "cursor-inbound",
-    { put: [{ key: "long", value: { sessionId: "ccrs_1" } }], remove: ["short"] },
-    8000
-  );
-  resetSessionRegistryForTests();
-  assert.equal(getPersistedSession("cursor-inbound", "short", 9000), undefined);
-  assert.deepEqual(getPersistedSession("cursor-inbound", "long", 9000), {
-    sessionId: "ccrs_1",
-    updatedAt: 8000,
-  });
-
   // The size cap is per family: churn in one family keeps another's oldest.
-  putPersistedSession("cursor", "agent-old", { sessionId: "agent-x" }, 7000);
+  putPersistedSession("other-family", "agent-old", { sessionId: "agent-x" }, 7000);
   for (let i = 0; i < 300; i += 1) {
-    putPersistedSession("cursor-inbound", `k${i}`, { sessionId: `ccrs_${i}` }, 10_000 + i);
+    putPersistedSession("test-family", `k${i}`, { sessionId: `ccrs_${i}` }, 10_000 + i);
   }
   resetSessionRegistryForTests();
-  assert.equal(getPersistedSession("cursor", "agent-old", 20_000)?.sessionId, "agent-x");
+  assert.equal(getPersistedSession("other-family", "agent-old", 20_000)?.sessionId, "agent-x");
   assert.equal(getPersistedSession("zen", "live", 20_000)?.sessionId, "ses_l");
-  assert.equal(getPersistedSession("cursor-inbound", "k0", 20_000), undefined);
-  assert.equal(getPersistedSession("cursor-inbound", "k299", 20_000)?.sessionId, "ccrs_299");
+  assert.equal(getPersistedSession("test-family", "k0", 20_000), undefined);
+  assert.equal(getPersistedSession("test-family", "k299", 20_000)?.sessionId, "ccrs_299");
   const capped = JSON.parse(readFileSync(join(dir, "ccr-sessions.json"), "utf-8"));
-  assert.equal(Object.keys(capped.families["cursor-inbound"]).length, 256);
+  assert.equal(Object.keys(capped.families["test-family"]).length, 256);
 } finally {
   delete process.env.CCR_SESSION_REGISTRY_DIR;
   resetSessionRegistryForTests();

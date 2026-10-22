@@ -365,7 +365,6 @@ CCR 引入了强大的动态配置系统，支持：
 | `Providers` | array | Provider 配置数组 |
 | `Router` | object | 路由配置 |
 | `transformers` | array | 转换器配置 |
-| `StatusLine` | object | 状态栏配置 |
 | `NON_INTERACTIVE_MODE` | boolean | 启用非交互模式（用于 CI/CD） |
 
 **CLI 专用字段**（这些字段仅在 CLI 模式下有效，服务器不使用）：

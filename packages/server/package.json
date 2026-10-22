@@ -1,6 +1,6 @@
 {
   "name": "@caeliq/ccr-server",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Server for Claude Code Router",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,6 @@
     "@ai-sdk/anthropic": "3.0.122",
     "@ai-sdk/openai": "3.0.117",
     "@caeliq/llms": "workspace:*",
-    "@cursor/sdk": "^1.0.36",
     "@fastify/cookie": "^11.1.2",
     "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^11.2.0",

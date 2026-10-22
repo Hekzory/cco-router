@@ -8,7 +8,6 @@ import { OpencodeHeadersTransformer } from "../transformer/opencode-headers.tran
 import { ReasoningTransformer } from "../transformer/reasoning.transformer";
 import { OpenAITransformer } from "../transformer/openai.transformer";
 import { AntigravityAuthTransformer } from "../transformer/antigravity-auth.transformer";
-import { CursorSdkTransformer } from "../transformer/cursor-sdk.transformer";
 
 async function planDedupesAndOrdersTransportLast() {
   const openai = new OpenAITransformer();
@@ -43,7 +42,7 @@ async function planRejectsMultipleTransportOwners() {
   assert.throws(
     () =>
       compileTransformerPlan(
-        [new CursorSdkTransformer(), new OpencodeHeadersTransformer()],
+        [new AntigravityAuthTransformer(), new OpencodeHeadersTransformer()],
         []
       ),
     /multiple transport owners/

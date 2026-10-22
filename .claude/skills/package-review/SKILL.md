@@ -104,7 +104,7 @@ Bucket each multi-version package:
 For workspace `package.json` dependencies:
 
 - Check registry latest within the supported policy (`engines.node` floor is `>=22.19.0`).
-- Align shared runtime deps across manifests (e.g. `@cursor/sdk`).
+- Align shared runtime deps across manifests (e.g. `undici`).
 - Do not downgrade. Raise floors only when a runtime dependency truly requires it; keep Docker/CI pins documented separately from `engines`.
 
 ### Phase 6 — Full verification
@@ -115,7 +115,7 @@ After any lockfile or override change, run from repo root:
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint
-pnpm test                 # Chrome bridge remains opt-in via pnpm test:chrome-bridge
+pnpm test                 # Hermetic tests; live provider tests remain opt-in
 pnpm build
 pnpm build:docs           # must stay warning-clean
 pnpm audit

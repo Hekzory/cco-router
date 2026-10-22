@@ -1,5 +1,5 @@
 /**
- * Cross-protocol matrix for the Responses/Grok incorporation:
+ * Cross-protocol matrix for the Responses/Responses provider incorporation:
  * inbound Anthropic | Chat | Responses → outbound Anthropic | Chat |
  * Responses | Codex | Gemini | Mistral, plus provider→client response legs.
  *
@@ -437,7 +437,7 @@ async function testResponsesProviderReasoningReachesChatClientOnce() {
         type: "response.completed",
         response: {
           id: "resp_1",
-          model: "grok-4.6",
+          model: "responses-model",
           output: [
             {
               type: "reasoning",
@@ -614,7 +614,7 @@ async function main() {
   await testResponsesProviderReasoningReachesChatClientOnce();
   await testAnthropicProviderThinkingReachesChatAndResponsesClients();
   await testResponsesJsonSchemaSurvivesChatAndAnthropic();
-  console.log("cross-protocol.responses-grok: PASS");
+  console.log("cross-protocol.responses-gateway: PASS");
 }
 
 main().catch((error) => {

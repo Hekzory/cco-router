@@ -73,7 +73,6 @@ const NATIVE_PROVIDER_RULES: Array<{
   { pattern: /^glm(?:-|$)/, provider: "zhipuai" },
   { pattern: /^gemini(?:-|$)/, provider: "google" },
   { pattern: /^deepseek(?:-|$)/, provider: "deepseek" },
-  { pattern: /^grok(?:-|$)/, provider: "xai" },
   { pattern: /^command(?:-|$)/, provider: "cohere" },
   { pattern: /^qwen(?:-|$)/, provider: "alibaba" },
 ];
