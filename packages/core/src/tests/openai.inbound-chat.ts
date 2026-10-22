@@ -639,7 +639,27 @@ async function testStreamSplitsSameLineDoneAndCost() {
   assert.equal(text.includes('"cost":"0"'), false);
 }
 
+async function testNullToolCallsRoundTrip() {
+  const tf = new OpenAITransformer();
+  const assistant = {
+    role: "assistant",
+    content: "answer",
+    tool_calls: null,
+    reasoning_content: "plan",
+    thinking: { signature: "sig" },
+  };
+  const inbound = await tf.transformRequestOut({ model: "m", messages: [assistant] });
+  assert.equal(inbound.messages[0].tool_calls, undefined);
+  assert.equal(assistant.tool_calls, null, "normalization must not mutate caller history");
+  assert.deepEqual(assistant.thinking, { signature: "sig" });
+  const out = await tf.transformResponseIn(new Response(JSON.stringify({ choices: [{ message: assistant }] }), { headers: { "Content-Type": "application/json" } }));
+  const reply = (await out.json()).choices[0].message;
+  assert.equal("tool_calls" in reply, false);
+  await tf.transformRequestOut({ model: "m", messages: [reply] });
+}
+
 async function main() {
+  await testNullToolCallsRoundTrip();
   await testSupportedFields();
   await testUnsupportedFields();
   await testMatchingTokenLimitsOk();

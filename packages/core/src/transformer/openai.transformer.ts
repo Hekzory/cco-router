@@ -577,7 +577,7 @@ function normalizeChatMessage(msg: any): any {
       "invalid_request_error"
     );
   }
-  if (msg.tool_calls !== undefined) {
+  if (msg.tool_calls != null) {
     if (role !== "assistant" || !Array.isArray(msg.tool_calls)) {
       throw createApiError(
         "tool_calls must be an array on assistant messages",
@@ -605,7 +605,12 @@ function normalizeChatMessage(msg: any): any {
     }
   }
   // developer → system (Unified system content)
-  const normalized = role === "developer" ? { ...msg, role: "system" } : msg;
+  const normalized = {
+    ...msg,
+    ...(role === "developer" ? { role: "system" } : {}),
+    ...(msg.thinking ? { thinking: { ...msg.thinking } } : {}),
+  };
+  if (normalized.tool_calls === null) delete normalized.tool_calls;
   if (normalized.role === "assistant") {
     syncAssistantThinkingFields(normalized);
   }
@@ -651,6 +656,7 @@ function projectChatClientAssistantThinking(message: any): void {
   if (!message || typeof message !== "object") return;
   syncAssistantThinkingFields(message);
   delete message.thinking;
+  if (message.tool_calls === null) delete message.tool_calls;
 }
 
 /**
