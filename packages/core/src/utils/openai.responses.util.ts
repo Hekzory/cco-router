@@ -1851,6 +1851,9 @@ function normalizeResponsesTools(
       function: {
         name,
         description: t.description || t.function?.description,
+        ...((t.strict ?? t.function?.strict) !== undefined
+          ? { strict: t.strict ?? t.function?.strict }
+          : {}),
         parameters:
           t.parameters ||
           t.schema ||

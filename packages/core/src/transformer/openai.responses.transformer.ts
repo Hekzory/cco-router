@@ -738,28 +738,14 @@ export class OpenAIResponsesTransformer implements Transformer {
               delete tool.function.parameters.properties.allowed_domains;
             }
           }
-          if (tool.function.name === "Edit") {
-            return {
-              type: tool.type,
-              name: tool.function.name,
-              description: tool.function.description,
-              parameters: {
-                ...tool.function.parameters,
-                required: [
-                  "file_path",
-                  "old_string",
-                  "new_string",
-                  "replace_all",
-                ],
-              },
-              strict: true,
-            };
-          }
           return {
             type: tool.type,
             name: tool.function.name,
             description: tool.function.description,
             parameters: tool.function.parameters,
+            // Responses may normalize an omitted strict flag by requiring every
+            // property. Keep optional arguments omittable unless opted into strict.
+            strict: tool.function.strict ?? false,
           };
         });
 

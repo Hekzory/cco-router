@@ -178,6 +178,10 @@ imported from Codex's bundled catalog (`codex-rs/models-manager/models.json`)
 into `packages/core/src/utils/codex-model-catalog.ts`; refresh it when Codex
 adds or retires models.
 
+- **Optional tool arguments** stay optional: converted function tools default to
+  `strict: false`, including Edit; an explicit strict flag is retained. Required
+  fields are not rewritten and no null placeholders are injected. A model can
+  still choose optional arguments; this does not prove the cause of earlier calls.
 - **Reasoning effort** is limited to the model's supported levels. `none` /
   `minimal` move up to the lowest level and anything above the top level
   moves down to it. `ultra` is a Codex picker alias and is never sent: it
