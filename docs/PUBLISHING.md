@@ -2,15 +2,15 @@
 
 ## Hekzory fork
 
-This fork ships `2.1.16-hekzory.1` (core `1.0.74-hekzory.1`) as a bundled CLI
+This fork ships `2.1.16-hekzory.3` (core `1.0.74-hekzory.3`) as a bundled CLI
 archive in GitHub Releases, not to npm. The package keeps its upstream name
 so existing `ccr` installations and launchers keep working.
 
 After build, typecheck, lint and hermetic tests pass, tag the CLI version:
 
 ```bash
-git tag v2.1.16-hekzory.1
-git push origin v2.1.16-hekzory.1
+git tag v2.1.16-hekzory.3
+git push origin v2.1.16-hekzory.3
 ```
 
 `release.yml` repeats the checks, tests a clean archive installation, and
@@ -18,7 +18,7 @@ publishes the `.tgz` and `SHA256SUMS`. Install by the pinned release URL;
 no GitHub token is needed. Never replace an existing release asset.
 
 ```bash
-npm install https://github.com/Hekzory/claude-code-router/releases/download/v2.1.16-hekzory.1/caeliq-claude-code-router-2.1.16-hekzory.1.tgz
+npm install https://github.com/Hekzory/claude-code-router/releases/download/v2.1.16-hekzory.3/caeliq-claude-code-router-2.1.16-hekzory.3.tgz
 ```
 
 Upstream npm, Docker and Pages workflows run only in the upstream repository.

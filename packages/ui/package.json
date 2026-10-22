@@ -1,7 +1,7 @@
 {
   "name": "@caeliq/ccr-ui",
   "private": true,
-  "version": "2.1.16-hekzory.1",
+  "version": "2.1.16-hekzory.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
