@@ -1245,20 +1245,9 @@ export class AnthropicTransformer implements Transformer {
               try {
                 const chunk = JSON.parse(data);
                 if (chunk.error) {
-                  const errorMessage = {
-                    type: "error",
-                    message: {
-                      type: "api_error",
-                      message: JSON.stringify(chunk.error),
-                    },
-                  };
-
-                  safeEnqueue(
-                    encoder.encode(
-                      `event: error\ndata: ${JSON.stringify(errorMessage)}\n\n`
-                    )
-                  );
-                  continue;
+                  safeError(chunk.error);
+                  await reader.cancel(chunk.error).catch(() => undefined);
+                  break;
                 }
 
                 model = chunk.model || model;
