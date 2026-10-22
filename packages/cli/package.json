@@ -1,10 +1,10 @@
 {
   "name": "@caeliq/claude-code-router",
-  "version": "2.1.16-hekzory.3",
-  "description": "Claude Code Router with Hekzory's Codex interoperability fixes",
+  "version": "3.0.0",
+  "description": "cco-router: Claude Code through an OpenAI subscription",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hekzory/claude-code-router.git",
+    "url": "git+https://github.com/Hekzory/cco-router.git",
     "directory": "packages/cli"
   },
   "files": ["dist", "README.md", "LICENSE"],

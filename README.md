@@ -1,14 +1,14 @@
-# Hekzory's Codex fixes
+# cco-router
 
-Small patch set on [oakimov/claude-code-router v2.1.15](https://github.com/oakimov/claude-code-router/tree/v2.1.15), including upstream reasoning replay fixes. Built CLI packages ship in [GitHub Releases](https://github.com/Hekzory/claude-code-router/releases); no npm or GitHub Packages token is needed. See [publishing](docs/PUBLISHING.md) for checks and installation.
+Claude Code through an OpenAI subscription. Development focuses on the ChatGPT/Codex backend: faithful tool calls, streaming, runtime messages and prompt-cache/reasoning replay.
 
-![Claude Code Router — adaptive model routing, tool use, and thinking](blog/images/claude-code-router-img.png)
+Derived from [oakimov/claude-code-router v2.1.15](https://github.com/oakimov/claude-code-router/tree/v2.1.15), itself based on [musistudio/claude-code-router](https://github.com/musistudio/claude-code-router). Original MIT notices are retained. This is a separate product line, starting at **3.0.0**, not another `hekzory` patch release.
 
-[![](https://img.shields.io/github/license/musistudio/claude-code-router)](https://github.com/musistudio/claude-code-router/blob/main/LICENSE)
+Packages ship in [GitHub Releases](https://github.com/Hekzory/cco-router/releases). The npm package names, `ccr` command, `ccodex` launcher and config paths are unchanged for now; only the repository/product name changes. See [publishing](docs/PUBLISHING.md) and the [Codex setup guide](docs/docs/server/guides/codex.md).
 
-Claude Code Router is an adaptive LLM gateway for Claude Code. It routes each request to the most suitable model and provider while preserving tool calls, streaming, extended thinking, and multi-turn context across different APIs.
+Other provider adapters remain inherited functionality; this release does not remove them. The documentation below retains their reference material, not a commitment to expand multi-provider support.
 
-## ✨ Features
+## Inherited features
 
 - **Adaptive Model Routing**: Route requests by scenario, including background tasks, thinking, long context, web search, FIM completions, and image workflows.
 - **Tool Use & Thinking**: Preserve tool calls, tool results, and reasoning content across providers with different API formats.
@@ -20,9 +20,9 @@ Claude Code Router is an adaptive LLM gateway for Claude Code. It routes each re
 - **GitHub Actions Integration**: Trigger Claude Code tasks in your GitHub workflows.
 - **Plugin System**: Extend functionality with custom transformers.
 
-## 🛠 Improvements in this fork
+## Inherited changes and compatibility
 
-This fork is based on [claude-code-router](https://github.com/musistudio/claude-code-router) and includes several enhancements:
+The following changes come from the Claude Code Router lineage and remain available:
 
 - **Codex breaking change — required chaining:** Codex is no longer a converting owner. Providers **must** set `"transformer": { "use": ["openai-responses", "codex"] }`. A `codex`-only chain is rejected. `openai-responses` owns the Responses wire (including encrypted reasoning items); `codex` is ChatGPT auth/headers middleware (`store: false`, `stream: true`). Responses clients passthrough `input[]`.
 - **Improved LLM Support**: Fixed streaming for Gemini/Gemma and enhanced OpenAI API handling.
@@ -78,9 +78,10 @@ Create and configure your `~/.claude-code-router/config.json` file. For more det
 The `config.json` file has several key sections:
 
 - **`PROXY_URL`** (optional): You can set a proxy for API requests, for example: `"PROXY_URL": "http://127.0.0.1:7890"`. Loopback targets (`localhost`, `127.0.0.1`, `::1`) always bypass the proxy. Hosts listed in the `NO_PROXY` / `no_proxy` environment variables also bypass it (comma-separated hosts, `.domain` / `*.domain`, CIDR, optional `:port`).
-- **`LOG`** (optional): You can enable logging by setting it to `true`. When set to `false`, no log files will be created. Default is `true`.
+- **`LOG`** (optional): You can enable application/server logging by setting it to `true`. Default is `true`. Separately enabled replay diagnostics do not depend on this flag.
 - **`LOG_LEVEL`** (optional): Set the logging level. Available options are: `"fatal"`, `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. Default is `"info"`.
 - **`LOG_SSE_EVENTS`** (optional): When `true`, logs every SSE event on both **provider→CCR** and **CCR→client** while `LOG_LEVEL` is `debug`. Default is `false` — debug still records terminal cache/usage summaries without per-delta file I/O. Pair with `LOG_REQUEST_BODY` to also capture request bodies on **client→CCR** and **CCR→provider** (all protocols). Each record includes a `direction` field.
+- **`RESPONSES_REPLAY_DIAGNOSTICS`** (optional, default `false`): Numeric local replay counters, independent of `LOG`/debug. Writes private, bounded JSONL files; no request contents or credentials. See [cache diagnostics](docs/docs/server/guides/codex.md#cache-diagnostics).
 - **Logging Systems**: The Claude Code Router uses two separate logging systems:
   - **Server-level logs**: HTTP requests, API calls, and server events are logged using pino in the `~/.claude-code-router/logs/` directory with filenames like `ccr-*.log`
   - **Application-level logs**: Routing decisions and business logic events are logged in `~/.claude-code-router/claude-code-router.log`

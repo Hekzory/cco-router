@@ -442,9 +442,11 @@ async function main() {
         const assistant = upstream.at(-1)!.body.messages[1];
         assert.deepEqual(
           assistant.content.map((block: any) => block.type),
-          ["thinking", "server_tool_use", "web_search_tool_result", "text"],
+          ["thinking", "server_tool_use", "web_search_tool_result", "text", "text"],
           `${provider}: replayed turn`
         );
+        assert.deepEqual(assistant.content.slice(3).map((block: any) => block.text), [PREAMBLE, ANSWER],
+          "Text boundaries survive without inserted newlines");
         assert.deepEqual(assistant.content[1], SERVER_USE);
         assert.deepEqual(assistant.content[2], SERVER_RESULT);
         // The client's own typed tool keeps its own cap, not the config one.

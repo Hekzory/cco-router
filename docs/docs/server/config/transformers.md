@@ -221,11 +221,20 @@ Always pair Codex destinations as `"use": ["openai-responses", "codex"]`.
 
 For Chat Completions → Responses conversations, replay the complete Chat
 history and send a stable conversation header such as `x-session-id`. CCR
-requests encrypted reasoning from the provider and retains it in a bounded,
-in-memory replay cache for both text answers and tool turns. A restart or cache
-expiry loses that opaque state; reasoning text without a provider id or
-ciphertext is then sent as an id-less summary. Text summaries do not reconstruct
-the provider's encrypted reasoning.
+requests encrypted reasoning and retains complete ordered reasoning, text-message
+and function/custom-call items for matching Anthropic/Chat assistant turns.
+JSON and SSE replies retain all text messages; original argument strings survive
+the client's JSON parse/stringify round trip. Replay requires the same visible
+text, calls, IDs and JSON argument values, scoped to session, provider, model,
+reasoning settings and preceding history (including runtime instructions).
+Edited turns fall back to normal conversion; request JSON cannot inject replay
+items. Unknown hosted items, annotated text and media decline full-output caching.
+
+The cache is process-local: six-hour TTL, 4096 aliases, 32 MiB conservatively
+charged across aliases, at most 256 items / 1 MiB per recorded turn (stream
+buffering also counts intermediate state). Restarts/expiry/eviction lose opaque
+state; text summaries cannot reconstruct ciphertext. These are local limits,
+not OpenAI prompt-cache TTL or capacity guarantees.
 
 Chat inbound preserves a non-empty string `prompt_cache_key`. Without a session
 header, that key also separates encrypted-reasoning replay namespaces. Provider

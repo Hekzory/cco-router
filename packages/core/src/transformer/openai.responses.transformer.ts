@@ -43,6 +43,7 @@ import {
   createEncryptedReasoningStreamRecorder,
   hasEncryptedReasoningContext,
   prepareEncryptedReasoningReplay,
+  replayedResponsesOutput,
   recordEncryptedReasoningResponseMessage,
 } from "../utils/responses.encrypted-content-cache";
 
@@ -560,6 +561,8 @@ export class OpenAIResponsesTransformer implements Transformer {
 
     const model = request.model || "";
     request = applyOpenAIChatCaching(request, provider, context);
+    // Validate before replay matching so removed orphan calls cannot be restored.
+    request.messages = validateOpenAIToolCalls(request.messages, true);
     // Anthropic/Chat cannot round-trip Responses ciphertext. Request
     // reasoning.encrypted_content and restore prior-turn ciphertext onto
     // assistant turns before the Responses input is built.
@@ -568,9 +571,6 @@ export class OpenAIResponsesTransformer implements Transformer {
       provider,
       context
     );
-    const messages = validateOpenAIToolCalls(request.messages, true);
-    request.messages = messages;
-
     const input: any[] = [];
 
     let systemIndex = 0;
@@ -624,6 +624,11 @@ export class OpenAIResponsesTransformer implements Transformer {
         return;
       }
       hasConversationStarted = true;
+      const replay = message.role === "assistant" ? replayedResponsesOutput(message) : undefined;
+      if (replay) {
+        input.push(...replay);
+        return;
+      }
 
       if (Array.isArray(message.content)) {
         const convertedContent = message.content
@@ -1559,12 +1564,15 @@ export class OpenAIResponsesTransformer implements Transformer {
   }
 
   private convertResponseToChat(responseData: ResponsesAPIPayload): any {
-    const messageOutput = responseData.output?.find(
-      (item) => item.type === "message"
-    );
-    const reasoningOutput = responseData.output?.find(
-      (item) => item.type === "reasoning"
-    );
+    const messageOutputs = (responseData.output || []).filter((item) => item.type === "message");
+    const messageOutput = messageOutputs.length ? {
+      ...messageOutputs[0], content: messageOutputs.flatMap((item) => item.content || []),
+    } : undefined;
+    const reasoningOutputs = (responseData.output || []).filter((item) => item.type === "reasoning");
+    const reasoningOutput = reasoningOutputs.length ? {
+      ...(reasoningOutputs.find((item) => item.encrypted_content) || reasoningOutputs[0]),
+      summary: reasoningOutputs.flatMap((item) => item.summary || []),
+    } : undefined;
     // Every function_call output survives, in source order — parallel calls
     // must not collapse into the first one found.
     const functionCallOutputs = (responseData.output ?? []).filter(
