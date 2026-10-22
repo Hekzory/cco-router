@@ -178,6 +178,13 @@ imported from Codex's bundled catalog (`codex-rs/models-manager/models.json`)
 into `packages/core/src/utils/codex-model-catalog.ts`; refresh it when Codex
 adds or retires models.
 
+- **Runtime instructions** retain their place in history. Lite maps runtime
+  system messages to developer messages, preserving their text and wrappers;
+  only the opening instruction prefix folds into `instructions`. Classic routes
+  reject interleaved system messages instead of silently dropping or hoisting
+  them. User/tool/assistant data is never promoted by matching text tags; missing
+  source provenance cannot be reconstructed by the router. The Lite shape follows
+  the official client; acceptance by a particular subscription needs a live check.
 - **Optional tool arguments** stay optional: converted function tools default to
   `strict: false`, including Edit; an explicit strict flag is retained. Required
   fields are not rewritten and no null placeholders are injected. A model can

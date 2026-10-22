@@ -568,17 +568,16 @@ export class OpenAIResponsesTransformer implements Transformer {
       provider,
       context
     );
-    const messages = validateOpenAIToolCalls(request.messages);
+    const messages = validateOpenAIToolCalls(request.messages, true);
     request.messages = messages;
 
     const input: any[] = [];
 
-    const systemMessages = request.messages.filter(
-      (msg) => msg.role === "system"
-    );
-    systemMessages.forEach((systemMessage, systemIndex) => {
+    let systemIndex = 0;
+    let hasConversationStarted = false;
+    const pushSystemMessage = (systemMessage: any) => {
       if (Array.isArray(systemMessage.content)) {
-        systemMessage.content.forEach((item) => {
+        systemMessage.content.forEach((item: any) => {
           let text = "";
           if (typeof item === "string") {
             text = item;
@@ -586,7 +585,7 @@ export class OpenAIResponsesTransformer implements Transformer {
             text = (item as { text: string }).text;
           }
           input.push({
-            role: "system",
+            role: systemMessage.role,
             content: [
               {
                 type: "input_text",
@@ -596,17 +595,18 @@ export class OpenAIResponsesTransformer implements Transformer {
             ],
           });
         });
-      } else if (systemIndex === 0) {
+      } else if (!hasConversationStarted && systemIndex === 0 && systemMessage.role === "system") {
         (request as any).instructions = systemMessage.content;
       } else {
         input.push({
-          role: "system",
+          role: systemMessage.role,
           content: [
             { type: "input_text", text: String(systemMessage.content || "") },
           ],
         });
       }
-    });
+      systemIndex++;
+    };
 
     let summaryOnlyReasoning = 0;
     const pushReasoningFromMessage = (message: any) => {
@@ -619,7 +619,11 @@ export class OpenAIResponsesTransformer implements Transformer {
     };
 
     request.messages.forEach((message) => {
-      if (message.role === "system") return;
+      if (message.role === "system" || (message as any).role === "developer") {
+        pushSystemMessage(message);
+        return;
+      }
+      hasConversationStarted = true;
 
       if (Array.isArray(message.content)) {
         const convertedContent = message.content

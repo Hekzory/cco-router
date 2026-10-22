@@ -72,11 +72,10 @@ function textFromInputContent(content: unknown): string {
 }
 
 /**
- * Codex rejects `role: "system"|"developer"` in Responses `input` with
- * `{"detail":"System messages are not allowed"}`. Fold those items (and any
- * pre-set instructions) into the top-level `instructions` string in source
- * order. Operates on the Responses wire — conversion from Chat/Anthropic is
- * owned by openai-responses.
+ * Classic Codex rejects system/developer input messages. Fold the opening
+ * instruction prefix only; hoisting runtime updates would change chronology.
+ * Lite accepts developer messages (Codex client 9a8a85bc5393), so runtime
+ * instructions stay in place there without interpreting their text as roles.
  */
 function foldSystemItemsIntoInstructions(request: Record<string, any>): void {
   const parts: string[] = [];
@@ -90,6 +89,7 @@ function foldSystemItemsIntoInstructions(request: Record<string, any>): void {
     return;
   }
   const next: any[] = [];
+  let hasConversationStarted = false;
   for (const item of input) {
     // Messages only: Responses Lite's `additional_tools` item is also
     // role `developer` and must stay in `input`.
@@ -98,10 +98,21 @@ function foldSystemItemsIntoInstructions(request: Record<string, any>): void {
       isCodexSystemRole(item.role) &&
       (item.type === undefined || item.type === "message")
     ) {
-      const text = textFromInputContent(item.content);
-      if (text) parts.push(text);
+      if (hasConversationStarted) {
+        if (!codexModelSpec(request.model)?.responsesLite) {
+          throw createApiError(
+            "This Codex route cannot preserve mid-conversation system messages; use a Responses Lite model",
+            400, "unsupported_runtime_system_messages", "invalid_request_error"
+          );
+        }
+        next.push({ ...item, role: "developer" });
+      } else {
+        const text = textFromInputContent(item.content);
+        if (text) parts.push(text);
+      }
       continue;
     }
+    if (item?.type !== "additional_tools") hasConversationStarted = true;
     next.push(item);
   }
   request.instructions = parts.join("\n\n");
