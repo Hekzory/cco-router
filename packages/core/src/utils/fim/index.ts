@@ -17,15 +17,12 @@ export {
 export {
   resolveFimMistralUrl,
   resolveFimDeepseekUrl,
-  resolveFimQwenCompletionsUrl,
   bearerAuthHeaders,
 } from "./url";
 export {
-  buildQwenFimPrompt,
   pickFimSamplingFields,
   encodePromptSuffixBody,
   encodeDeepseekFimBody,
-  encodeQwenFimBody,
   DEEPSEEK_FIM_MAX_TOKENS,
 } from "./encode";
 export {

@@ -91,7 +91,7 @@ function findFimOutboundTransformer(provider: any): {
   const use = provider?.transformer?.use;
   if (!Array.isArray(use) || use.length === 0) {
     throw createApiError(
-      `Provider '${provider?.name}' has no fim.* transformer. Configure transformer.use with fim.mistral, fim.deepseek, or fim.qwen.`,
+      `Provider '${provider?.name}' has no fim.* transformer. Configure transformer.use with fim.mistral or fim.deepseek.`,
       400,
       "fim_transformer_required",
       "invalid_request_error"

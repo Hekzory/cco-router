@@ -50,7 +50,7 @@ jobs:
           mkdir "$smoke/home"
           version=$(node -p "require('./packages/cli/package.json').version")
           test "$(HOME="$smoke/home" "$smoke/node_modules/.bin/ccr" -v)" = "claude-code-router version: $version"
-          node -e 'const fs = require("fs"); const p = process.argv[1]; for (const file of ["cli.js", "tiktoken_bg.wasm", "index.html"]) if (!fs.statSync(`${p}/dist/${file}`).size) process.exit(1)' "$smoke/node_modules/@caeliq/claude-code-router"
+          node -e 'const fs = require("fs"); const assert = require("assert/strict"); const p = process.argv[1]; const files = ["cli.js", "tiktoken_bg.wasm"]; assert.deepEqual(fs.readdirSync(`${p}/dist`).sort(), files); for (const file of files) assert.ok(fs.statSync(`${p}/dist/${file}`).size)' "$smoke/node_modules/@caeliq/claude-code-router"
       - uses: actions/upload-artifact@v6
         with:
           name: cco-router-package

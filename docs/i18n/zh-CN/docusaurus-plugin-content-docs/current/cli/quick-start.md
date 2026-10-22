@@ -49,7 +49,6 @@ docker run -d --name ccr \
 docker restart ccr
 ```
 
-您也可以访问 `http://localhost:3456/ui/` 通过 Web UI 可视化配置提供商。
 
 ## 3. 使用 Claude Code
 
@@ -65,7 +64,7 @@ claude
 
 ## 修改配置后重启
 
-修改配置文件或通过 Web UI 更改后，重启服务：
+修改配置文件后，重启服务：
 
 ```bash
 docker restart ccr

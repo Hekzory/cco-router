@@ -1,6 +1,6 @@
 {
   "name": "@caeliq/ccr-server",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Server for Claude Code Router",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,23 +19,17 @@
   "author": "caeliq",
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.122",
-    "@ai-sdk/openai": "3.0.117",
     "@caeliq/llms": "workspace:*",
-    "@fastify/cookie": "^11.1.2",
     "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^11.2.0",
-    "@fastify/static": "^10.1.3",
     "adm-zip": "^0.6.1",
-    "ai": "6.0.290",
     "dotenv": "^17.4.2",
     "json5": "^2.2.3",
     "lru-cache": "^11.5.2",
     "rotating-file-stream": "^3.2.10",
     "shell-quote": "^1.10.0",
     "tiktoken": "^1.0.22",
-    "uuid": "^14.0.2",
-    "zod": "^4.4.3"
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@caeliq/ccr-shared": "workspace:*",

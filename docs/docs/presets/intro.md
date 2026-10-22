@@ -64,35 +64,6 @@ ccr preset info my-preset
 ccr preset delete my-preset
 ```
 
-### Web UI Mode
-
-Web UI provides a more friendly visual interface with additional installation methods.
-
-#### Access Web UI
-
-```bash
-ccr ui
-```
-
-Then open `http://localhost:3000` in your browser.
-
-#### Install from GitHub Repository
-
-1. Click the "Preset Market" button
-2. Select the preset you want to install from the list
-3. Click the "Install" button
-
-#### Reconfigure Preset
-
-1. Click the "View Details" icon next to the preset
-2. Modify configuration items in the detail page
-3. Click "Apply" to save configuration
-
-#### Manage Presets
-
-- **View**: Click the info icon on the right side of the preset
-- **Delete**: Click the delete icon on the right side of the preset
-
 ## Creating Custom Presets
 
 ### Preset Directory Structure

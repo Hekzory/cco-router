@@ -9,11 +9,10 @@ console.log('Building Server package...');
 try {
   const serverDir = path.join(__dirname, '../packages/server');
 
-  // Create dist directory
+  // Removed modules must not survive as stale declarations or browser assets.
   const distDir = path.join(serverDir, 'dist');
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir, { recursive: true });
-  }
+  fs.rmSync(distDir, { recursive: true, force: true });
+  fs.mkdirSync(distDir, { recursive: true });
 
   // Prefer package-local bins so a newer global/root TypeScript cannot break the build.
   const localBin = path.join(serverDir, 'node_modules', '.bin');
@@ -31,7 +30,7 @@ try {
   console.log('Building server application...');
   // Use minify and tree-shaking to optimize size.
   // --target matches the package engines floor (>=22.19.0).
-  execSync('esbuild src/index.ts --bundle --platform=node --target=node22 --minify --tree-shaking=true --external:ai --external:@ai-sdk/* --external:zod --outfile=dist/index.js', {
+  execSync('esbuild src/index.ts --bundle --platform=node --target=node22 --minify --tree-shaking=true --outfile=dist/index.js', {
     stdio: 'inherit',
     cwd: serverDir,
     env: { ...process.env, PATH: pathEnv },

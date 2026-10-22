@@ -74,7 +74,6 @@ const NATIVE_PROVIDER_RULES: Array<{
   { pattern: /^gemini(?:-|$)/, provider: "google" },
   { pattern: /^deepseek(?:-|$)/, provider: "deepseek" },
   { pattern: /^command(?:-|$)/, provider: "cohere" },
-  { pattern: /^qwen(?:-|$)/, provider: "alibaba" },
 ];
 
 function isDisabled(): boolean {

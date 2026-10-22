@@ -2,13 +2,13 @@
 sidebar_position: 7
 ---
 
-# ccr claude-auth / ccr codex-auth / ccr qwen-auth / ccr antigravity-auth
+# ccr claude-auth / ccr codex-auth / ccr antigravity-auth
 
 Authentication commands for provider backends that require OAuth or JWT tokens.
 
 :::warning Consult provider Terms & Conditions
 
-The account-level auth flows below (Claude subscription, Codex, Antigravity, Qwen) authenticate against third-party services using your own account. Before using them, review each provider's Terms & Conditions — access may be limited by subscription tier, region, or the provider's service terms, and using client credentials outside the client they were issued for may violate those terms. You use this functionality at your own risk; CCR provides it for interoperability only and does not guarantee continued access to any third-party service.
+The account-level auth flows below (Claude subscription, Codex, Antigravity) authenticate against third-party services using your own account. Before using them, review each provider's Terms & Conditions — access may be limited by subscription tier, region, or the provider's service terms, and using client credentials outside the client they were issued for may violate those terms. You use this functionality at your own risk; CCR provides it for interoperability only and does not guarantee continued access to any third-party service.
 
 See [DISCLAIMER.md](https://github.com/oakimov/claude-code-router/blob/main/DISCLAIMER.md) for the project's interoperability statement.
 :::
@@ -146,24 +146,3 @@ Gemini options in that chain (full detail in [Transformers → gemini](/docs/ser
 - **`thoughtSignatureFallback: "skip"`** — explicit form of the default. Gemini 3 / Antigravity require a `thoughtSignature` on tool calls; Claude Code cannot carry it on Anthropic `tool_use`, so CCR caches signatures and restores them. On a miss, `"skip"` stamps Google's `skip_thought_signature_validator` sentinel on the first `functionCall` so the turn does not 400. The value name refers to that sentinel — it does **not** mean “disable the fallback.” Set `"none"` only if your endpoint rejects the sentinel.
 
 ---
-
-## ccr qwen-auth
-
-Opens a browser-based auth page at `http://localhost:3456/qwen/auth` for token management.
-
-```bash
-ccr qwen-auth
-```
-
-### How It Works
-
-1. The command tells you to open `http://localhost:3456/qwen/auth` in your browser (or you can navigate there directly)
-2. On the auth page, use the **bookmarklet** (recommended) or paste a token manually:
-   - **Bookmarklet**: Drag "Get Qwen Token" to your bookmarks bar, open `chat.qwen.ai`, and click it — the token is sent back automatically
-   - **Manual**: Run `copy(localStorage.getItem('token'))` in `chat.qwen.ai` DevTools Console, then paste on the auth page
-3. The token is validated against Qwen's API and saved to `~/.claude-code-router/qwen_auth.json`
-4. Automatic token rotation — expired tokens are detected on the next request
-
-### Prerequisites
-
-- A Qwen Chat account and access to `qwen.aikit.club`

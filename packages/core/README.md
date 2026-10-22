@@ -6,7 +6,7 @@
 
 - **Model Routing**: Route requests by scenario (background, thinking, long context, web search, FIM, image).
 - **Native Client Protocols**: Accept Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, and FIM Completions (FIM uses a dedicated pipeline and `fim.*` transformers).
-- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Codex, Claude subscription, and Qwen.
+- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Codex, and Claude subscription.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.
 - **CLI Model Management**: Manage models and providers directly from the terminal with `ccr model`.
@@ -21,12 +21,11 @@ This fork is based on [claude-code-router](https://github.com/musistudio/claude-
 - **Improved LLM Support**: Fixed streaming for Gemini/Gemma and enhanced OpenAI API handling.
 - **Reasoning & Streaming Refactor**: Modularized streaming and reasoning logic into reusable utilities for better maintainability.
 - **Mistral Integration**: Added specific handling for Mistral's reasoning parameters and decoupled transformation logic.
-- **Build & Deployment**: Integrated the UI package into the Docker build process and added a Docker Compose configuration.
+- **Build & Deployment**: Includes Docker and Docker Compose configurations.
 - **Code Quality**: Localized codebase (English comments), improved error handling, and addressed Copilot review feedback.
 - **Gemini Stability & Tool Use Fixes**: Corrected `thoughtSignature` placement in Gemini request bodies (must be a standalone `thought: true` part, not attached to text/function-call parts); filtered synthetic `ccr_` placeholder signatures from outgoing Gemini requests to prevent Gemini 500 errors; fixed `tool_result` content-array serialization in the Anthropic transformer so models receive plain text instead of JSON-wrapped arrays (resolves "Error editing file" in Claude Code); fixed Fastify `onSend` hook to prevent `invalid type 'object'` unhandled rejections on error responses.
 - **Codex (ChatGPT) Integration**: ChatGPT backend over the Responses API. **Requires** `"use": ["openai-responses", "codex"]`. Supports OAuth (`ccr codex-auth`) and PAT (`api_key: "at-..."`), SSE streaming, encrypted reasoning replay, tool calls with web search, and image handling.
 - **Claude Subscription Integration**: Added `claude-auth` support for routing through a Claude Pro or Max subscription via OAuth (`ccr claude-auth`), using the `claude-auth` + `Anthropic` transformer chain.
-- **Qwen Chat Integration**: Added `qwen-auth` transformer for the Qwen Chat backend (`qwen.aikit.club/v1/chat/completions`), supporting JWT-based authentication (`ccr qwen-auth`) where the user pastes a token copied from `chat.qwen.ai` localStorage, automatic token rotation, and stripping of the trailing `<details>...</details>` metadata block Qwen injects into responses.
 - **DeepSeek Reasoning Replay**: Implemented mandatory reasoning replay for DeepSeek models (e.g., via OpenCode/ZenGo). DeepSeek requires previous assistant reasoning content to be included in subsequent requests — the `reasoning` transformer automatically replays reasoning output from prior turns.
 - **Model Discovery**: Enabled non-interactive model discovery for arbitrary API providers. Using `ccr model get <provider>`, the tool automatically fetches remote models, parses custom JSON structures using configurable paths, and appends missing models to the local configuration while preserving existing settings.
 
@@ -50,7 +49,7 @@ cd packages/server
 docker compose up --build -d
 ```
 
-The Compose setup builds the server and UI into the `ccr` container, exposes the proxy on `http://localhost:3456`, and mounts configuration from `packages/server/ccr-config` to `/root/.claude-code-router` inside the container.
+The Compose setup builds the server into the `ccr` container, exposes the proxy on `http://localhost:3456`, and mounts configuration from `packages/server/ccr-config` to `/root/.claude-code-router` inside the container.
 
 ### 2. Configuration
 
@@ -137,43 +136,6 @@ Here is a comprehensive example:
       "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemma-4-31b-it"],
       "transformer": {
         "use": ["gemini"]
-      }
-    },
-    {
-      "name": "modelscope",
-      "api_base_url": "https://api-inference.modelscope.cn/v1/chat/completions",
-      "api_key": "",
-      "models": ["Qwen/Qwen3-Coder-480B-A35B-Instruct", "Qwen/Qwen3-235B-A22B-Thinking-2507"],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 65536
-            }
-          ],
-          "enhancetool"
-        ],
-        "Qwen/Qwen3-235B-A22B-Thinking-2507": {
-          "use": ["reasoning"]
-        }
-      }
-    },
-    {
-      "name": "dashscope",
-      "api_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-      "api_key": "",
-      "models": ["qwen3-coder-plus"],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 65536
-            }
-          ],
-          "enhancetool"
-        ]
       }
     },
     {
@@ -266,19 +228,7 @@ This approach lets you run `claude` directly without needing `ccr code`.
 > ccr restart
 > ```
 
-### 4. UI Mode
-
-For a more intuitive experience, you can use the UI mode to manage your configuration:
-
-```shell
-ccr ui
-```
-
-This will open a web-based interface where you can easily view and edit your `config.json` file.
-
-![UI](/blog/images/ui.png)
-
-### 5. CLI Model Management
+### 4. CLI Model Management
 
 For users who prefer terminal-based workflows, you can use the interactive CLI model selector:
 
@@ -445,37 +395,7 @@ A Claude subscription provider requires the `claude-auth` + `Anthropic` transfor
 
 **Custom Transformers:**
 
-#### Qwen Provider Authentication
-
-The Qwen provider uses a single JWT to authenticate with the Qwen Chat backend. Before using Qwen models, you must save a token to your local CCR config:
-
-```shell
-ccr qwen-auth
-```
-
-This command:
-1. Prints a URL (`http://127.0.0.1:<port>/qwen/auth`) for the in-browser auth page
-2. The page offers two options:
-   - **Bookmarklet (recommended)**: drag the "Get Qwen Token" link to your bookmarks bar, then click it on the signed-in Qwen page. The token is sent back to CCR automatically.
-   - **Manual paste**: sign in at `chat.qwen.ai`, open dev tools (F12) → Console, run `copy(localStorage.getItem('token'))`, paste the JWT into the form and submit.
-3. The token is validated against `qwen.aikit.club/v1/validate` and saved to `~/.claude-code-router/qwen_auth.json` (mode 0600)
-4. The `qwen-auth` transformer automatically refreshes the token when it nears expiry (within 6 hours)
-
-> **Note**: The server must be running for `ccr qwen-auth` to work, as it hosts the auth form at `/qwen/auth`. Unlike the Codex flow, no OAuth callback is required — the token is pasted directly into the form.
-
-**Running with Docker**:
-
-The Qwen auth page is served on the regular CCR port (no separate callback port). When running in Docker:
-
-```shell
-docker exec -it claude-code-router ccr qwen-auth
-```
-
-The CLI prints a URL to open in your host browser (`http://localhost:3456/qwen/auth`, which Docker forwards to the container). Tokens persist across container restarts via the volume-mounted `./ccr-config` directory.
-
-**Custom host/port for the bookmarklet**: The bookmarklet's redirect target is hardcoded into the JS because it runs in the Qwen page's context (with no knowledge of CCR's address). By default it points to `http://127.0.0.1:3456`. If your CCR server is on a different host or port, set the `QWEN_AUTH_REDIRECT` env var before starting the server, e.g. `QWEN_AUTH_REDIRECT=http://192.168.1.10:8080` — the bookmarklet will then redirect to that address.
-
-### 6. Presets Management
+### 5. Presets Management
 
 Presets allow you to save, share, and reuse configurations easily. You can export your current configuration as a preset and install presets from files or URLs.
 
@@ -513,7 +433,7 @@ ccr preset delete my-preset
 │   └── manifest.json    # Contains configuration and metadata
 ```
 
-### 7. Activate Command (Environment Variables Setup)
+### 6. Activate Command (Environment Variables Setup)
 
 The `activate` command allows you to set up environment variables globally in your shell, enabling you to use the `claude` command directly or integrate Claude Code Router with applications built using the Agent SDK.
 
@@ -605,7 +525,7 @@ Transformers allow you to modify the request and response payloads to ensure com
 **Available Built-in Transformers:**
 
 - Protocol owners: `Anthropic` (`/v1/messages`), `OpenAI` (`/v1/chat/completions`), `openai-responses` (`/v1/responses`), `Fim` (`/v1/fim/completions`).
-- FIM provider adapters: `fim.mistral`, `fim.deepseek`, `fim.qwen` (dedicated FIM providers only — do not stack with chat transformers).
+- FIM provider adapters: `fim.mistral`, `fim.deepseek` (dedicated FIM providers only — do not stack with chat transformers).
 - `Anthropic`: When used as provider egress / same-protocol keep, can preserve Anthropic wire; also converts Unified ↔ Anthropic for cross-protocol clients.
 - `deepseek`: Adapts requests/responses for DeepSeek API.
 - `gemini`: Adapts requests/responses for Gemini API.
@@ -638,7 +558,6 @@ Transformers allow you to modify the request and response payloads to ensure com
 - `cleancache`: Clears the `cache_control` field from requests.
 - `vertex-gemini`: Handles the Gemini API using Vertex authentication.
 - `chutes-glm` Unofficial support for GLM 4.5 model via Chutes [chutes-glm-transformer.js](https://gist.github.com/vitobotta/2be3f33722e05e8d4f9d2b0138b8c863).
-- `qwen-cli` (experimental): Unofficial support for qwen3-coder-plus model via Qwen CLI [qwen-cli.js](https://gist.github.com/musistudio/f5a67841ced39912fd99e42200d5ca8b).
 - `rovo-cli` (experimental): Unofficial support for gpt-5 via Atlassian Rovo Dev CLI [rovo-cli.js](https://gist.github.com/SaseQ/c2a20a38b11276537ec5332d1f7a5e53).
 - `codex`: Adapts requests/responses for the Codex (ChatGPT) backend API. Supports OAuth via `ccr codex-auth` or PAT auth when `api_key` starts with `at-`.
 - `claude-auth`: Authenticates requests to Anthropic's API using your Claude Pro or Max subscription OAuth token. Converts Unified format to Anthropic format and handles SSE response conversion. Use it together with `Anthropic` in the provider chain, and authenticate via `ccr claude-auth`.
@@ -676,30 +595,6 @@ The Codex transformer connects to the ChatGPT backend API, providing access to G
 > **PAT mode**: If `api_key` starts with `at-`, CCR uses it directly and skips `ccr codex-auth`.
 
 > **Note**: If `api_key` is not a PAT, CCR falls back to OAuth tokens from `~/.claude-code-router/codex_auth.json`.
-
-**Qwen Provider Configuration:**
-
-The Qwen provider uses the `qwen-auth` transformer (for the `Authorization: Bearer <jwt>` header and trailing `<details>` strip) paired with the existing `OpenAI` transformer (which registers the `POST /v1/chat/completions` endpoint).
-
-```json
-{
-  "name": "qwen",
-  "api_base_url": "https://qwen.aikit.club/v1/chat/completions",
-  "api_key": "qwen-placeholder",
-  "models": ["qwen3-max", "qwen3-coder-plus"],
-  "transformer": {
-    "use": ["qwen-auth", "reasoning", "OpenAI"]
-  }
-}
-```
-
-Three transformers are required in the chain:
-
-- `qwen-auth` — sets the `Authorization: Bearer <jwt>` header on every outbound request (loading/refreshing the JWT from `~/.claude-code-router/qwen_auth.json`) and strips the trailing `<details>...</details>` block Qwen injects into responses.
-- `reasoning` — maps Claude Code's unified `reasoning` field onto the request so the Qwen endpoint's `enable_thinking` and `thinking_budget` parameters are populated.
-- `OpenAI` — protocol owner for `POST /v1/chat/completions` (validates inbound Chat bodies; applies provider-side cache policy). Keep it last in Qwen-style chains that already set auth/reasoning.
-
-> **Note**: The `api_key` field is a placeholder — actual authentication is handled via the JWT stored in `~/.claude-code-router/qwen_auth.json`. Run `ccr qwen-auth` to authenticate before using the Qwen provider.
 
 **Claude Subscription Provider Configuration:**
 
@@ -775,7 +670,7 @@ The `Router` object defines which model to use for different scenarios:
 - `longContext`: A model for handling long contexts (e.g., > 60K tokens).
 - `longContextThreshold` (optional): The token count threshold for triggering the long context model. Defaults to 60000 if not specified.
 - `webSearch`: Used for handling web search tasks and this requires the model itself to support the feature. If you're using openrouter, you need to add the `:online` suffix after the model name.
-- `fim`: Used for `POST /v1/fim/completions` (fill-in-the-middle). Destination provider must use a `fim.*` transformer (`fim.mistral`, `fim.deepseek`, or `fim.qwen`). See `docs/docs/server/api/fim-completions-api.md`.
+- `fim`: Used for `POST /v1/fim/completions` (fill-in-the-middle). Destination provider must use a `fim.*` transformer (`fim.mistral`, `fim.deepseek`). See `docs/docs/server/api/fim-completions-api.md`.
 - `image` (beta): Used for handling image-related tasks (supported by CCR’s built-in agent). If the model does not support tool calling, you need to set the `config.forceUseImageAgent` property to `true`.
 
 - You can also switch models dynamically in Claude Code with the `/model` command:

@@ -5,7 +5,7 @@
  * Streaming:
  *
  * 1. Content blocks are closed before a different block type opens. Reasoning
- *    providers (DeepSeek, Qwen, GLM, Gemini) interleave thinking and text, so a
+ *    providers (DeepSeek, GLM, Gemini) interleave thinking and text, so a
  *    second thinking run must open a fresh thinking block instead of emitting
  *    thinking_delta against the text block index.
  * 2. stop_reason only becomes tool_use when a tool_use block was actually

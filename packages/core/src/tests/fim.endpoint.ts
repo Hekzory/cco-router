@@ -145,7 +145,7 @@ async function main() {
       }
     }
 
-    // Cross-family qwen from Codestral inbound
+    // Cross-family DeepSeek from Codestral inbound
     {
       captured.length = 0;
       globalThis.fetch = (async (input: any, init?: any) => {
@@ -153,12 +153,12 @@ async function main() {
           typeof input === "string" ? input : input?.url || String(input);
         const body = init?.body ? JSON.parse(init.body) : undefined;
         captured.push({ url, body });
-        // LM Studio upstream shape
+        // DeepSeek upstream shape
         return new Response(
           JSON.stringify({
             id: "cmpl_lm",
             object: "text_completion",
-            model: "qwen2.5-coder-7b-instruct",
+            model: "deepseek-chat",
             choices: [{ index: 0, text: "mid", finish_reason: "stop" }],
           }),
           { status: 200, headers: { "content-type": "application/json" } }
@@ -169,15 +169,15 @@ async function main() {
         HOST: "127.0.0.1",
         Providers: [
           {
-            name: "lmstudio-qwen-fim",
-            api_base_url: "http://127.0.0.1:1234/v1/completions",
-            api_key: "lm-studio",
-            models: ["qwen2.5-coder-7b-instruct"],
-            transformer: { use: ["fim.qwen"] },
+            name: "deepseek-fim",
+            api_base_url: "https://api.deepseek.com/beta/completions",
+            api_key: "sk-test",
+            models: ["deepseek-chat"],
+            transformer: { use: ["fim.deepseek"] },
           },
         ],
         Router: {
-          fim: "lmstudio-qwen-fim,qwen2.5-coder-7b-instruct",
+          fim: "deepseek-fim,deepseek-chat",
         },
       });
 
@@ -200,13 +200,13 @@ async function main() {
         assert.equal(captured.length, 1);
         assert.equal(
           captured[0].url,
-          "http://127.0.0.1:1234/v1/completions"
+          "https://api.deepseek.com/beta/completions"
         );
         assert.equal(
           captured[0].body.prompt,
-          "<|fim_prefix|>pre<|fim_suffix|>suf<|fim_middle|>"
+          "pre"
         );
-        assert.equal(captured[0].body.suffix, undefined);
+        assert.equal(captured[0].body.suffix, "suf");
       } finally {
         await app.close();
         cleanup();

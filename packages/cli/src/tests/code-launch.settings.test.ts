@@ -65,16 +65,21 @@ try {
   const help = run("-h");
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /status\s+Show server status/);
-  assert.doesNotMatch(help.stdout, /statusline/i);
+  assert.doesNotMatch(help.stdout, /statusline|qwen-auth|^\s+ui\s/im);
 
   const status = run("status");
   assert.equal(status.status, 0, status.stderr);
   assert.match(status.stdout, /Status: Not Running/);
   assert.equal(existsSync(join(routerHome, ".claude-code-router.pid")), false);
 
-  const removed = run("statusline");
-  assert.equal(removed.status, 1, removed.stderr);
-  assert.match(removed.stdout, /Usage: ccr/);
+  for (const command of ["statusline", "ui", "qwen-auth"]) {
+    const removed = run(command);
+    assert.equal(removed.status, 1, removed.stderr);
+    assert.match(removed.stdout, /Usage: ccr/);
+    assert.equal(existsSync(join(routerHome, ".claude-code-router.pid")), false);
+    assert.equal(readFileSync(join(routerHome, "config.json"), "utf8"), configText);
+    assert.equal(existsSync(join(routerHome, "qwen_auth.json")), false);
+  }
 
   // Obsolete router/preset settings must not inject a removed command.
   const plain = launchPreset("plain");

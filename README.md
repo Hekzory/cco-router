@@ -12,11 +12,13 @@ Release **3.0.1** removes Cursor SDK, xAI Grok authentication and Chrome On-Devi
 
 The built-in Status Line, its UI editor and `ccr statusline` are also removed. Remove any manually configured `ccr statusline` command from Claude Code settings; the router no longer installs one.
 
+Release **3.0.2** removes Qwen authentication/CLI integration, `fim.qwen` and the Web UI (including `ccr ui`, browser sessions and the debug playground). Replace providers using `qwen-auth` or `fim.qwen` before upgrading. Use `ccr model`, `ccr preset` or edit `config.json` for configuration; local credentials and settings are left untouched.
+
 ## Inherited features
 
 - **Adaptive Model Routing**: Route requests by scenario, including background tasks, thinking, long context, web search, FIM completions, and image workflows.
 - **Tool Use & Thinking**: Preserve tool calls, tool results, and reasoning content across providers with different API formats.
-- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Antigravity, Codex, Claude subscription, and Qwen.
+- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Antigravity, Codex, and Claude subscription.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Native Client Protocols**: Accept Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, and FIM Completions through the same router (FIM uses a dedicated pipeline and `fim.*` transformers).
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.
@@ -32,7 +34,7 @@ The following changes come from the Claude Code Router lineage and remain availa
 - **Improved LLM Support**: Fixed streaming for Gemini/Gemma and enhanced OpenAI API handling.
 - **Reasoning & Streaming Refactor**: Modularized streaming and reasoning logic into reusable utilities for better maintainability.
 - **Mistral Integration**: Added specific handling for Mistral's reasoning parameters and decoupled transformation logic.
-- **Build & Deployment**: Integrated the UI package into the Docker build process and added a Docker Compose configuration.
+- **Build & Deployment**: Includes Docker and Docker Compose configurations.
 - **Code Quality**: Localized codebase (English comments), improved error handling, and addressed Copilot review feedback.
 - **Dependency Security**: Keeps the workspace audit-clean with scoped security floors. Docusaurus's archived `image-size` dependency is replaced only on the MDX loader edge by a private `image-size/fromFile` compatibility adapter backed by maintained `probe-image-size`; it is build tooling and does not enter CCR runtime packages.
 - **Gemini Stability & Tool Use Fixes**: Corrected `thoughtSignature` placement in Gemini request bodies (Gemini 3 expects it as a sibling field on the `functionCall` part itself, and validates only the first such part per step); filtered synthetic `ccr_` placeholder signatures from outgoing Gemini requests to prevent Gemini 500 errors; fixed `tool_result` content-array serialization in the Anthropic transformer so models receive plain text instead of JSON-wrapped arrays (resolves "Error editing file" in Claude Code); fixed Fastify `onSend` hook to prevent `invalid type 'object'` unhandled rejections on error responses.
@@ -40,7 +42,6 @@ The following changes come from the Claude Code Router lineage and remain availa
 - **Gateway and Codex model discovery**: The server's OpenAI-compatible `GET /v1/models` enriches configured models with native-provider metadata from models.dev (friendly names, descriptions, context/output limits, reasoning effort levels, and Claude Desktop family tiers). `MODEL_ID_OUTPUT` controls whether discovery emits literal canonical IDs (the default) or masks otherwise-filtered IDs as reversible `claude-<lowercase UTF-8 hex>` aliases. Inbound always accepts both forms. Separately, the CLI's `ccr codex-config` command uses the same exact-model/native-provider matching rule for Codex's local picker catalog: a unique model-id row is authoritative, duplicate ids are resolved to the native provider, and a true miss falls back to a 200K context window with `low`/`medium`/`high` effort. It also wires Codex's `config.toml` to route over the Responses API.
 - **Claude Subscription Integration**: Added `claude-auth` support for routing through a Claude Pro or Max subscription via OAuth (`ccr claude-auth`), using the `claude-auth` + `Anthropic` transformer chain.
 - **Antigravity Integration**: Added Google Antigravity OAuth via `ccr antigravity-auth`, with the `antigravity-auth` + `gemini` transformer chain targeting the Antigravity / `cloudcode-pa` API. Supports Gemini and Claude models under that quota, thought-signature round-tripping / fallback, and Claude tool-schema sanitization for Gemini-backed Claude models. Requires `gemini` options `{"cachedContent": false}` because Antigravity has no Google `cachedContents` resource (leaving the default `true` causes 404s).
-- **Qwen Chat Integration**: Added `qwen-auth` transformer for the Qwen Chat backend (`qwen.aikit.club/v1/chat/completions`), supporting JWT-based authentication (`ccr qwen-auth`) where the user pastes a token copied from `chat.qwen.ai` localStorage, automatic token rotation, and stripping of the trailing `<details>...</details>` metadata block Qwen injects into responses.
 - **DeepSeek Reasoning Replay**: Implemented mandatory reasoning replay for DeepSeek models (e.g., via OpenCode/ZenGo). DeepSeek requires previous assistant reasoning content to be included in subsequent requests — the `reasoning` transformer automatically replays reasoning output from prior turns.
 - **Model Discovery**: Enabled non-interactive model discovery for arbitrary API providers. Using `ccr model get <provider>`, the tool automatically fetches remote models, parses custom JSON structures using configurable paths, and appends missing models to the local configuration while preserving existing settings.
 
@@ -67,7 +68,7 @@ docker run -d --name ccr \
   ghcr.io/oakimov/claude-code-router:latest
 ```
 
-The image ships the server and UI, exposes the proxy on `http://localhost:3456`, and mounts `~/.claude-code-router` as the config directory (`/root/.claude-code-router` inside the container). Set `"HOST": "0.0.0.0"` in your `config.json` so the port mapping can reach the server. After changing the config, restart with `docker restart ccr`; view logs with `docker logs -f ccr`.
+The image ships the server, exposes the proxy on `http://localhost:3456`, and mounts `~/.claude-code-router` as the config directory (`/root/.claude-code-router` inside the container). Set `"HOST": "0.0.0.0"` in your `config.json` so the port mapping can reach the server. After changing the config, restart with `docker restart ccr`; view logs with `docker logs -f ccr`.
 
 ### 2. Configuration
 
@@ -83,7 +84,7 @@ The `config.json` file has several key sections:
 - **Logging Systems**: The Claude Code Router uses two separate logging systems:
   - **Server-level logs**: HTTP requests, API calls, and server events are logged using pino in the `~/.claude-code-router/logs/` directory with filenames like `ccr-*.log`
   - **Application-level logs**: Routing decisions and business logic events are logged in `~/.claude-code-router/claude-code-router.log`
-- **`APIKEY`** (optional): You can set a secret key to authenticate requests. API clients can provide it in the `Authorization` header (e.g., `Bearer your-secret-key`) or the `x-api-key` header. The web UI exchanges it for an opaque `HttpOnly`, same-site session cookie and never stores the key in browser storage. UI sessions are kept in memory and require login again after CCR restarts. Example: `"APIKEY": "your-secret-key"`.
+- **`APIKEY`** (optional): You can set a secret key to authenticate requests. API clients can provide it in the `Authorization` header (e.g., `Bearer your-secret-key`) or the `x-api-key` header. Example: `"APIKEY": "your-secret-key"`.
 - **`HOST`** (optional): You can set the host address for the server. If `APIKEY` is not set, the host will be forced to `127.0.0.1` for security reasons to prevent unauthorized access. Example: `"HOST": "0.0.0.0"`.
 - **Rate limiting**: Every route has a default limit of 1000 requests per minute. The shared default is defined by `RATE_LIMIT_CONFIG` in `packages/shared/src/constants.ts`; change it there to update all route limits.
 - **`NON_INTERACTIVE_MODE`** (optional): When set to `true`, enables compatibility with non-interactive environments like GitHub Actions, Docker containers, or other CI/CD systems. This sets appropriate environment variables (`CI=true`, `FORCE_COLOR=0`, etc.) and configures stdin handling to prevent the process from hanging in automated environments. Example: `"NON_INTERACTIVE_MODE": true`.
@@ -224,19 +225,7 @@ The compatibility layer supports ordinary text, images, function tools/results, 
 > ccr restart
 > ```
 
-### 4. UI Mode
-
-For a more intuitive experience, you can use the UI mode to manage your configuration:
-
-```shell
-ccr ui
-```
-
-This will open a web-based interface where you can easily view and edit your `config.json` file.
-
-![UI](blog/images/ui.png)
-
-### 5. CLI Model Management
+### 4. CLI Model Management
 
 For users who prefer terminal-based workflows, you can use the interactive CLI model selector:
 
@@ -261,7 +250,7 @@ ccr model get openai
 >
 > **Note**: After syncing models into `config.json`, restart the service with `ccr restart`.
 
-> **Note — account OAuth providers**: The provider auth flows below (Antigravity, Codex, Claude subscription, Qwen) authenticate through your account-level OAuth session rather than a dedicated API key. See [DISCLAIMER.md](DISCLAIMER.md) for the interoperability and compliance notes that apply to those providers.
+> **Note — account OAuth providers**: The provider auth flows below (Antigravity, Codex, Claude subscription) authenticate through your account-level OAuth session rather than a dedicated API key. See [DISCLAIMER.md](DISCLAIMER.md) for the interoperability and compliance notes that apply to those providers.
 
 #### Antigravity Authentication
 
@@ -324,19 +313,7 @@ The OAuth flow is handled by the CCR server callback on port `1455` (Docker maps
 
 > **See also**: Full setup, the transformer chain, client classification, and billing/identity details are in `docs/docs/server/guides/claude-auth.md`.
 
-#### Qwen Provider Authentication
-
-Authenticate with Qwen Chat by saving a JWT from `chat.qwen.ai` localStorage:
-
-```shell
-ccr qwen-auth
-```
-
-The CCR server hosts an auth page at `/qwen/auth` offering a bookmarklet or manual paste. The token is validated, saved to `~/.claude-code-router/qwen_auth.json`, and auto-refreshed. The Qwen provider requires the `qwen-auth` + `reasoning` + `OpenAI` transformer chain.
-
-> **See also**: Full Qwen setup and provider config are in `docs/docs/server/guides/qwen.md`.
-
-### 6. Presets Management
+### 5. Presets Management
 
 Save, share, and reuse configurations:
 
@@ -353,7 +330,7 @@ Presets store your configuration (plus metadata) as a directory with `manifest.j
 
 > **See also**: `docs/docs/cli/commands/preset.md`.
 
-### 7. Activate Command (Environment Variables Setup)
+### 6. Activate Command (Environment Variables Setup)
 
 The `activate` command allows you to set up environment variables globally in your shell, enabling you to use the `claude` command directly or integrate Claude Code Router with applications built using the Agent SDK.
 
@@ -388,10 +365,10 @@ The `Providers` array defines each provider: `name`, `api_base_url`, `api_key`, 
 **Available Built-in Transformers:**
 
 - Protocol owners: `Anthropic` (`/v1/messages`), `OpenAI` (`/v1/chat/completions`), `openai-responses` (`/v1/responses`), `Fim` (`/v1/fim/completions`).
-- FIM provider adapters: `fim.mistral`, `fim.deepseek`, `fim.qwen` (dedicated FIM providers only — do not stack with chat transformers).
-- Provider adapters: `deepseek`, `groq`, `mistral`, `openrouter`, `gemini` / `vertex-gemini`, `codex` (pair with `openai-responses`), `claude-auth` (pair with `Anthropic`), `antigravity-auth`, `qwen-auth`.
+- FIM provider adapters: `fim.mistral`, `fim.deepseek` (dedicated FIM providers only — do not stack with chat transformers).
+- Provider adapters: `deepseek`, `groq`, `mistral`, `openrouter`, `gemini` / `vertex-gemini`, `codex` (pair with `openai-responses`), `claude-auth` (pair with `Anthropic`), `antigravity-auth`.
 - `maxtoken` — sets a specific `max_tokens`. `tooluse` — optimizes tool usage via `tool_choice`. `reasoning` — replays provider `reasoning_content` across turns. `sampling` — maps `temperature` / `top_p` / `top_k` / `repetition_penalty`. `enhancetool` — adds error tolerance to tool-call parameters (disables streaming of tool calls). `cleancache` — clears `cache_control`. `customparams` — injects custom request parameters.
-- Experimental gist/CLI integrations: `gemini-cli`, `chutes-glm`, `qwen-cli`, `rovo-cli`.
+- Experimental gist/CLI integrations: `gemini-cli`, `chutes-glm`, `rovo-cli`.
 
 > **See also**: The full transformer reference — including the `gemini` `cachedContent` / `thoughtSignatureFallback` options and the `openrouter` provider-routing parameter — is in `docs/docs/server/config/transformers.md`.
 
@@ -409,7 +386,7 @@ The `Router` object defines which model to use for different scenarios:
 - `longContext`: A model for handling long contexts (e.g., > 60K tokens).
 - `longContextThreshold` (optional): The token count threshold for triggering the long context model. Defaults to 60000 if not specified.
 - `webSearch`: Used for handling web search tasks and this requires the model itself to support the feature. If you're using openrouter, you need to add the `:online` suffix after the model name.
-- `fim`: Used for `POST /v1/fim/completions` (fill-in-the-middle). Destination provider must use a `fim.*` transformer (`fim.mistral`, `fim.deepseek`, or `fim.qwen`). Setup for Codestral and local Qwen (LM Studio): `docs/docs/server/api/fim-completions-api.md`.
+- `fim`: Used for `POST /v1/fim/completions` (fill-in-the-middle). Destination provider must use a `fim.*` transformer (`fim.mistral`, `fim.deepseek`). Setup for Codestral and DeepSeek: `docs/docs/server/api/fim-completions-api.md`.
 - `image` (beta): Used for handling image-related tasks (supported by CCR’s built-in agent). If the model does not support tool calling, you need to set the `config.forceUseImageAgent` property to `true`.
 
 - You can also switch models dynamically in Claude Code with the `/model` command:
@@ -447,7 +424,7 @@ CCR translates Claude Code's Anthropic cache intent into each upstream's native 
 - Anthropic, Claude Auth, and Vertex Claude use Anthropic automatic prompt caching while preserving bounded explicit block markers.
 - OpenAI Chat and Responses use stable `prompt_cache_key` values; GPT-5.6+ models also receive explicit content breakpoints. Codex uses its separate native contract for every model: a stable prompt key plus session-routing headers, with no explicit content breakpoints.
 - OpenRouter uses sticky `session_id` routing plus model-native caching. Vercel AI Gateway receives `providerOptions.gateway.caching: "auto"`.
-- Mistral and Cerebras receive native `prompt_cache_key` values. Qwen/DashScope receives a final-content cache marker. DeepSeek, Groq, and Vertex OpenAI retain their native implicit caching.
+- Mistral and Cerebras receive native `prompt_cache_key` values. DeepSeek, Groq, and Vertex OpenAI retain their native implicit caching.
 - Gemini and Vertex Gemini use implicit caching and create/reuse native CachedContent resources for sufficiently large stable system/tool prefixes.
 
 Provider-incompatible cache fields are removed only after translation. Cache read/write usage reported upstream is converted back to Anthropic `cache_read_input_tokens` and `cache_creation_input_tokens` for Claude Code.

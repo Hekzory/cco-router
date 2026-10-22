@@ -2,7 +2,7 @@
 sidebar_position: 7
 ---
 
-# ccr claude-auth / ccr codex-auth / ccr qwen-auth / ccr antigravity-auth
+# ccr claude-auth / ccr codex-auth / ccr antigravity-auth
 
 需要 OAuth 或 JWT 令牌的提供商后端的认证命令。
 
@@ -116,24 +116,3 @@ ccr antigravity-auth --project <gcp-project-id>
 - **`thoughtSignatureFallback: "skip"`** — 默认值的显式写法。Gemini 3 / Antigravity 要求工具调用带有 `thoughtSignature`；Claude Code 无法在 Anthropic `tool_use` 上携带它，因此 CCR 缓存并还原签名。未命中时，`"skip"` 会在第一个 `functionCall` 上盖印 Google 的 `skip_thought_signature_validator` 哨兵，避免 400。取值名称指的是该哨兵 — **不是**“关闭回退”。仅在端点拒绝该哨兵时设为 `"none"`。
 
 ---
-
-## ccr qwen-auth
-
-打开基于浏览器的认证页面 `http://localhost:3456/qwen/auth` 进行令牌管理。
-
-```bash
-ccr qwen-auth
-```
-
-### 工作原理
-
-1. 命令提示您在浏览器中打开 `http://localhost:3456/qwen/auth`（或直接导航到该页面）
-2. 在认证页面上，使用**书签工具**（推荐）或手动粘贴令牌：
-   - **书签工具**：将"Get Qwen Token"拖到书签栏，打开 `chat.qwen.ai` 并点击它 — 令牌自动发送回来
-   - **手动**：在 `chat.qwen.ai` 的 DevTools Console 中运行 `copy(localStorage.getItem('token'))`，然后在认证页面上粘贴
-3. 令牌经过 Qwen API 验证并保存到 `~/.claude-code-router/qwen-auth.json`
-4. 自动令牌轮换 — 下次请求时检测过期令牌
-
-### 前置要求
-
-- Qwen Chat 账户以及访问 `qwen.aikit.club` 的权限

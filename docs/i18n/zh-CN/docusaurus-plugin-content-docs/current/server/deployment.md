@@ -196,19 +196,6 @@ services:
       retries: 3
 ```
 
-## 访问 Web UI
-
-部署完成后，访问 Web UI：
-
-```
-http://localhost:3456/ui/
-```
-
-通过 Web UI 可以：
-- 查看和管理配置
-- 监控日志
-- 查看服务状态
-
 ## 二次开发
 
 如果需要基于 CCR Server 进行二次开发，请查看 [API 参考](/docs/category/api)。

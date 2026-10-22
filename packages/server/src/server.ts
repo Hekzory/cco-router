@@ -6,8 +6,6 @@ import Server, {
 } from "@caeliq/llms";
 import { readConfigFile, writeConfigFile, backupConfigFile } from "./utils";
 import { join, resolve, relative, sep, basename } from "path";
-import fastifyStatic from "@fastify/static";
-import fastifyCookie from "@fastify/cookie";
 import type {} from "@fastify/rate-limit";
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, rmSync } from "fs";
 import { homedir } from "os";
@@ -33,21 +31,9 @@ import {
 import fastifyMultipart from "@fastify/multipart";
 import AdmZip from "adm-zip";
 import { registerCodexAuthRoutes } from "./routes/codex-auth";
-import { registerQwenAuthRoutes } from "./routes/qwen-auth";
 import { registerClaudeAuthRoutes } from "./routes/claude-auth";
 import { registerAntigravityAuthRoutes } from "./routes/antigravity-auth";
 import { registerModelsRoutes } from "./routes/models";
-import { registerDebugChatRoutes } from "./routes/debug-chat";
-import { registerOAuthRefreshRoutes } from "./routes/oauth-refresh";
-import { registerUpdateRoutes } from "./routes/update";
-import { installLlmCaptureFetch } from "./debug/llm-capture";
-import {
-  apiKeysMatch,
-  clearUiSessionCookie,
-  createUiSession,
-  revokeUiSession,
-  setUiSessionCookie,
-} from "./auth/ui-session";
 
 const LOG_DIR = join(homedir(), ".claude-code-router", "logs");
 
@@ -180,44 +166,14 @@ export const createServer = async (config: any): Promise<any> => {
     }
   };
 
-  await app.register(fastifyCookie);
-
   app.register(fastifyMultipart, {
     limits: {
       fileSize: 50 * 1024 * 1024, // 50MB
     },
   });
 
-  app.post(
-    "/api/auth/login",
-    rateLimitOptions,
-    async (req: any, reply: any) => {
-      const configuredApiKey = server.configService.get("APIKEY");
-      if (!configuredApiKey || !apiKeysMatch(req.body?.apiKey, configuredApiKey)) {
-        return reply.status(401).send({ error: "Invalid API key" });
-      }
-
-      const sessionId = createUiSession();
-      setUiSessionCookie(reply, sessionId);
-      return { success: true };
-    }
-  );
-
-  app.post(
-    "/api/auth/logout",
-    rateLimitOptions,
-    async (req: any, reply: any) => {
-      revokeUiSession(req);
-      clearUiSessionCookie(reply);
-      return { success: true };
-    }
-  );
-
   // Register Codex OAuth callback routes
   await registerCodexAuthRoutes(app);
-
-  // Register Qwen Chat JWT auth routes
-  await registerQwenAuthRoutes(app);
 
   // Register Claude OAuth callback route (http://127.0.0.1:8080/callback)
   await registerClaudeAuthRoutes(app);
@@ -227,12 +183,6 @@ export const createServer = async (config: any): Promise<any> => {
 
   // OpenAI-compatible model listing (GET, so not a routed client protocol)
   await registerModelsRoutes(app, config);
-
-  installLlmCaptureFetch();
-  const getRuntimeConfig = () => server.configService.getAll();
-  await registerDebugChatRoutes(app, getRuntimeConfig);
-  await registerOAuthRefreshRoutes(app, getRuntimeConfig);
-  await registerUpdateRoutes(app);
 
   app.post("/v1/messages/count_tokens", rateLimitOptions, async (req: any, reply: any) => {
     const { messages, tools, system, model } = req.body;
@@ -319,18 +269,6 @@ export const createServer = async (config: any): Promise<any> => {
 
     await writeConfigFile(newConfig);
     return { success: true, message: "Config saved successfully" };
-  });
-
-  // Register static file serving with caching
-  app.register(fastifyStatic, {
-    root: join(__dirname, "..", "dist"),
-    prefix: "/ui/",
-    maxAge: "1h",
-  });
-
-  // Redirect /ui to /ui/ for proper static file serving
-  app.get("/ui", rateLimitOptions, async (_: any, reply: any) => {
-    return reply.redirect("/ui/");
   });
 
   // Get log file list endpoint

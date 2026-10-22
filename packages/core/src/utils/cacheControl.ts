@@ -473,7 +473,7 @@ export function applyRawAnthropicPromptCaching<T extends Record<string, any>>(
   return clone as T;
 }
 
-export function applyQwenPromptCaching(
+export function applyLastMessageCacheBreakpoint(
   request: UnifiedChatRequest
 ): UnifiedChatRequest {
   // stripMessagesCacheControl already clones each message (shallow) and

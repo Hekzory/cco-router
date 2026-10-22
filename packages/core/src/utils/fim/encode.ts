@@ -2,14 +2,6 @@ import type { UnifiedFimRequest } from "./types";
 
 const DEEPSEEK_FIM_MAX_TOKENS = 4096;
 
-/** Qwen / HF FIM markers for completions prompt. */
-export function buildQwenFimPrompt(prompt: string, suffix?: string): string {
-  if (typeof suffix === "string") {
-    return `<|fim_prefix|>${prompt}<|fim_suffix|>${suffix}<|fim_middle|>`;
-  }
-  return `<|fim_prefix|>${prompt}<|fim_suffix|>`;
-}
-
 /** Sampling fields shared across FIM outbound bodies. */
 export function pickFimSamplingFields(
   unified: UnifiedFimRequest
@@ -58,20 +50,6 @@ export function encodeDeepseekFimBody(
     clampMaxTokens: DEEPSEEK_FIM_MAX_TOKENS,
     disableThinking: true,
   });
-}
-
-export function encodeQwenFimBody(
-  unified: UnifiedFimRequest
-): Record<string, unknown> {
-  const sampling = pickFimSamplingFields(unified);
-  // Qwen completions: no separate suffix field; tokens live in prompt.
-  delete sampling.min_tokens;
-  delete sampling.random_seed;
-  return {
-    model: unified.model,
-    prompt: buildQwenFimPrompt(unified.prompt, unified.suffix),
-    ...sampling,
-  };
 }
 
 export { DEEPSEEK_FIM_MAX_TOKENS };

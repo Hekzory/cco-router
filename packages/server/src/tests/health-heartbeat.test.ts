@@ -1,6 +1,6 @@
 /**
  * Periodic health report: window accounting, in-flight tracking, the persisted
- * snapshot the Web UI reads, and the guarantee that the timer never keeps the
+ * snapshot exposed by /health, and the guarantee that the timer never keeps the
  * process alive.
  */
 import assert from "node:assert/strict";

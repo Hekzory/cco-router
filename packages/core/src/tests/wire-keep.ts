@@ -37,7 +37,7 @@ async function wireSafeAllowlist() {
   assert.equal(isWireSafeMiddlewareForKeep("xai-auth", "openai-responses"), false);
   assert.equal(isWireSafeMiddlewareForKeep("opencode-headers", "Anthropic"), true);
   assert.equal(isWireSafeMiddlewareForKeep("opencode-headers", "openai-responses"), true);
-  assert.equal(isWireSafeMiddlewareForKeep("qwen-auth", "OpenAI"), true);
+  assert.equal(isWireSafeMiddlewareForKeep("qwen-auth", "OpenAI"), false);
   assert.equal(isWireSafeMiddlewareForKeep("reasoning", "OpenAI"), true, "reasoning allowed for OpenAI owner");
   assert.equal(isWireSafeMiddlewareForKeep("reasoning", "Anthropic"), false, "reasoning not for Anthropic wire");
   assert.equal(isWireSafeMiddlewareForKeep("claude-auth", "Anthropic"), false);

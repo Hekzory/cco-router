@@ -8,7 +8,6 @@
     { "path": "./packages/cli" },
     { "path": "./packages/server" },
     { "path": "./packages/shared" },
-    { "path": "./packages/core" },
-    { "path": "./packages/ui" }
+    { "path": "./packages/core" }
   ]
 }

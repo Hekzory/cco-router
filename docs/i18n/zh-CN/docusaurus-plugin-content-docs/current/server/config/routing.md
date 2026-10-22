@@ -86,12 +86,12 @@ FIM 在独立流水线上使用 `Router.fim` — 见 [FIM](#fim-fill-in-the-midd
 }
 ```
 
-**本地 Qwen（LM Studio）：**
+**DeepSeek：**
 
 ```json
 {
   "Router": {
-    "fim": "lmstudio-qwen-fim,qwen/qwen2.5-coder-14b"
+    "fim": "deepseek-fim,deepseek-chat"
   }
 }
 ```
@@ -139,7 +139,7 @@ FIM 端点上的裸模型名经 `Router.fim` 解析，再回退到 `Router.defau
       "openrouter,anthropic/claude-3.7-sonnet:thinking"
     ],
     "longContext": [
-      "modelscope,Qwen/Qwen3-Coder-480B-A35B-Instruct"
+      "gemini,gemini-2.5-pro"
     ],
     "webSearch": [
       "openrouter,anthropic/claude-sonnet-4"
@@ -249,8 +249,8 @@ FIM 端点上的裸模型名经 `Router.fim` 解析，再回退到 `Router.defau
   },
   "fallback": {
     "background": [
-      "modelscope,Qwen/Qwen3-Coder-480B-A35B-Instruct",
-      "dashscope,qwen3-coder-plus"
+      "gemini,gemini-2.5-pro",
+      "deepseek,deepseek-chat"
     ]
   }
 }

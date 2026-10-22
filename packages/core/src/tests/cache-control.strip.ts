@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {
   applyAnthropicPromptCaching,
-  applyQwenPromptCaching,
+  applyLastMessageCacheBreakpoint,
   applyRawAnthropicPromptCaching,
   deriveCacheSessionKey,
   extractClientSessionId,
@@ -199,9 +199,9 @@ function testAnthropicCachingDoesNotTouchToolSchemas() {
   assert.deepEqual(out.cache_control, { type: "ephemeral" });
 }
 
-function testQwenUsesLastMessageBreakpoint() {
-  const out = applyQwenPromptCaching({
-    model: "qwen-plus",
+function testLastMessageBreakpoint() {
+  const out = applyLastMessageCacheBreakpoint({
+    model: "example-model",
     messages: [
       {
         role: "system",
@@ -510,7 +510,7 @@ async function main() {
   testAnthropicCachingTrimsExistingOverBudget();
   testAnthropicAutomaticCachingUsesAvailableSlot();
   testAnthropicCachingDoesNotTouchToolSchemas();
-  testQwenUsesLastMessageBreakpoint();
+  testLastMessageBreakpoint();
   testCacheSessionKeyIsHashed();
   testCacheSessionKeyIgnoresSystemTextWhenSessionPresent();
   testCacheSessionKeyFromAnthropicMetadataJson();

@@ -1,7 +1,7 @@
 /**
  * Encode upstream FIM responses to the **inbound** client wire.
  * Client response shape follows inbound kind (not outbound provider).
- * v1 inbound is mistral/Codestral; deepseek/qwen inbound reserved for later.
+ * v1 inbound is mistral/Codestral; deepseek inbound reserved for later.
  */
 
 import type { FimInboundKind } from "./kinds";
@@ -85,7 +85,7 @@ function encodeMistralClientJson(payload: any): Record<string, any> {
   };
 }
 
-/** OpenAI-style text_completion (DeepSeek / Qwen completions FIM). */
+/** OpenAI-style text_completion (DeepSeek completions FIM). */
 function encodeTextCompletionClientJson(payload: any): Record<string, any> {
   const choicesIn = Array.isArray(payload?.choices) ? payload.choices : [];
   const choices = choicesIn.map((choice: any, index: number) => ({
@@ -122,7 +122,7 @@ export function encodeFimResponseForInbound(
   if (inboundKind === "mistral") {
     return encodeMistralClientJson(payload);
   }
-  // deepseek / qwen inbound (future): text_completion + choices[].text
+  // deepseek inbound (future): text_completion + choices[].text
   return encodeTextCompletionClientJson(payload);
 }
 

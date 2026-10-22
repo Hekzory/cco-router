@@ -12,7 +12,7 @@ import { monitorEventLoopDelay, type IntervalHistogram } from "node:perf_hooks";
  *
  * Every report is also persisted to `~/.claude-code-router/health.json`, and
  * the same payload is attached to the existing `GET /health` liveness probe,
- * which is what the Web UI status bar reads. Only the current state is kept —
+ * which clients can read without inference. Only the current state is kept —
  * no history.
  */
 
@@ -504,7 +504,7 @@ export class HealthHeartbeat {
 
   /**
    * Current state, as served by `GET /health`. This is a live read rather than
-   * the last persisted report, so the UI is never up to one interval behind the
+   * the last persisted report, so API clients are never up to one interval behind the
    * process it is describing.
    */
   getState(): HealthState {

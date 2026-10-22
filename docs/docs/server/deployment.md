@@ -190,19 +190,6 @@ services:
       retries: 3
 ```
 
-## Access Web UI
-
-After deployment is complete, access the Web UI:
-
-```
-http://localhost:3456/ui/
-```
-
-Through the Web UI you can:
-- View and manage configuration
-- Monitor logs
-- Check service status
-
 ## Secondary Development
 
 If you need to develop based on CCR Server, please see [API Reference](/docs/category/api).

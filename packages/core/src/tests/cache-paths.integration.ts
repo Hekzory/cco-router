@@ -8,7 +8,6 @@ import { OpenrouterTransformer } from "../transformer/openrouter.transformer";
 import { VercelTransformer } from "../transformer/vercel.transformer";
 import { buildRequestBody as buildMistralBody } from "../utils/mistral.util";
 import {
-  applyQwenPromptCaching,
   applyRawAnthropicPromptCaching,
 } from "../utils/cacheControl";
 import {
@@ -345,7 +344,7 @@ async function testGatewayAndRequestLevelPaths() {
   assert.equal(mistral.tools[0].cache_control, undefined);
 
   const cerebras = (await new CerebrasTransformer().transformRequestIn(
-    request("qwen-3-235b-a22b-instruct-2507"),
+    request("llama3.1-8b"),
     {
       name: "cerebras",
       baseUrl: "https://api.cerebras.ai/v1/chat/completions",
@@ -428,12 +427,17 @@ async function testAnthropicAndVertexClaudePaths() {
   assert.equal(inbound.usage.cache_read_input_tokens, 70);
 }
 
-async function testQwenCaching() {
-  const qwen = applyQwenPromptCaching(request("qwen-plus")) as any;
-  assert.deepEqual(qwen.messages[1].content[0].cache_control, {
+async function testOpenRouterGeminiCaching() {
+  const input = request("google/gemini-2.5-pro");
+  const original = structuredClone(input);
+  const { body: cached } = await new OpenrouterTransformer().transformRequestIn(input);
+  assert.deepEqual(cached.messages[1].content[0].cache_control, {
     type: "ephemeral",
   });
-
+  assert.equal(cached.messages[0].content[0].cache_control, undefined);
+  assert.equal(cached.tools[0].cache_control, undefined);
+  assert.equal(cached.cache_control, undefined);
+  assert.deepEqual(input, original);
 }
 
 async function main() {
@@ -443,7 +447,7 @@ async function main() {
   await testGatewayAndRequestLevelPaths();
   await testDeepSeekUsageAndAutomaticRequest();
   await testAnthropicAndVertexClaudePaths();
-  await testQwenCaching();
+  await testOpenRouterGeminiCaching();
   console.log("cache-paths.integration: ok");
 }
 

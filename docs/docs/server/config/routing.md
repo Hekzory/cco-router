@@ -86,12 +86,12 @@ Route `POST /v1/fim/completions` to a FIM-capable provider (must use a `fim.*` t
 }
 ```
 
-**Local Qwen (LM Studio):**
+**DeepSeek:**
 
 ```json
 {
   "Router": {
-    "fim": "lmstudio-qwen-fim,qwen/qwen2.5-coder-14b"
+    "fim": "deepseek-fim,deepseek-chat"
   }
 }
 ```
@@ -138,7 +138,7 @@ When a request fails, you can configure a list of backup models. The system will
       "openrouter,anthropic/claude-3.7-sonnet:thinking"
     ],
     "longContext": [
-      "modelscope,Qwen/Qwen3-Coder-480B-A35B-Instruct"
+      "gemini,gemini-2.5-pro"
     ],
     "webSearch": [
       "openrouter,anthropic/claude-sonnet-4"
@@ -255,8 +255,8 @@ Automatically switches to backup models when the primary model quota is exhauste
   },
   "fallback": {
     "background": [
-      "modelscope,Qwen/Qwen3-Coder-480B-A35B-Instruct",
-      "dashscope,qwen3-coder-plus"
+      "gemini,gemini-2.5-pro",
+      "deepseek,deepseek-chat"
     ]
   }
 }

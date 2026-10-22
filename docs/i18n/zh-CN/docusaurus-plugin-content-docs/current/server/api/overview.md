@@ -63,8 +63,6 @@ curl -H "x-api-key: your-api-key" http://localhost:3456/api/config
 | 端点 | 方法 | 描述 |
 |------|------|------|
 | `/api/restart` | POST | 重启服务 |
-| `/ui` | GET | Web 管理界面 |
-| `/ui/` | GET | Web 管理界面（重定向） |
 
 ## 认证
 

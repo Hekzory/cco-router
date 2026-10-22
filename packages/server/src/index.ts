@@ -290,7 +290,7 @@ async function getServer(options: RunOptions = {}) {
   });
 
   // Enrich the existing `/health` liveness probe rather than adding a second
-  // endpoint; the UI status bar reads its `vitals` field.
+  // endpoint in its `vitals` field.
   setHealthReporter(() => heartbeat.getState());
 
   // Pathname + protocol detection MUST run before auth so 401/403 can use
@@ -304,7 +304,7 @@ async function getServer(options: RunOptions = {}) {
     if (presetMatch) {
       req.preset = presetMatch[1];
     }
-    // Only routed LLM traffic counts; UI/status polling would drown the report.
+    // Only routed LLM traffic counts; Health/status polling would drown the report.
     if (req.protocolMatch) {
       heartbeat.trackRequest(req, reply);
     }

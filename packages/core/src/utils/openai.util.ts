@@ -1,6 +1,5 @@
 import { UnifiedChatRequest, UnifiedMessage } from "../types/llm";
 import {
-  applyQwenPromptCaching,
   deriveCacheSessionKey,
   stripMessagesCacheControl,
   stripToolsCacheControl,
@@ -265,16 +264,6 @@ export function applyProviderNativeChatCaching(
     host.endsWith(".openai.azure.com")
   ) {
     return applyOpenAIChatCaching(request, provider, context);
-  }
-
-  if (
-    name === "qwen" ||
-    name === "qwen-auth" ||
-    host.includes("dashscope") ||
-    host.endsWith(".aliyuncs.com") ||
-    host === "qwen.aikit.club"
-  ) {
-    return applyQwenPromptCaching(request);
   }
 
   if (

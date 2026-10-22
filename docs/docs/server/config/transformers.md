@@ -448,11 +448,10 @@ Used only on FIM providers for `POST /v1/fim/completions` (separate pipeline fro
 | `Fim` | Protocol owner (client route) — not listed in `transformer.use` |
 | `fim.mistral` | Codestral/Mistral FIM URL + auth; same-kind body passthrough |
 | `fim.deepseek` | DeepSeek beta completions FIM |
-| `fim.qwen` | Qwen completions FIM (LM Studio / DashScope) |
 
 Outbound request encoding differs per `fim.*`. Responses are encoded to the **inbound** client wire (v1: Codestral/Mistral). Same-kind paths passthrough the response body.
 
-Step-by-step config for **Codestral** and **LM Studio Qwen**: [FIM Completions API](/docs/server/api/fim-completions-api).
+Step-by-step config for **Codestral** and **DeepSeek**: [FIM Completions API](/docs/server/api/fim-completions-api).
 
 Do not stack chat transformers (`mistral`, `deepseek`, …) with `fim.*` on the same provider.
 

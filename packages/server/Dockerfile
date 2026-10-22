@@ -20,14 +20,12 @@ COPY scripts ./scripts
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/core/package.json ./packages/core/
 COPY packages/server/package.json ./packages/server/
-COPY packages/ui/package.json ./packages/ui/
 COPY packages/cli/package.json ./packages/cli/
 
 # Copy all source code before installing dependencies to avoid symlink conflicts
 COPY packages/shared ./packages/shared
 COPY packages/core ./packages/core
 COPY packages/server ./packages/server
-COPY packages/ui ./packages/ui
 COPY packages/cli ./packages/cli
 
 # Install all dependencies
@@ -44,9 +42,6 @@ RUN pnpm build
 WORKDIR /app/packages/server
 RUN pnpm build && \
     rm -rf node_modules/.cache
-
-WORKDIR /app/packages/ui
-RUN pnpm build
 
 WORKDIR /app/packages/cli
 RUN pnpm build
@@ -84,40 +79,6 @@ ENV PATH="/app/packages/cli/dist:$PATH"
 
 # Copy server bundle from build stage
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
-# Copy locally pre-built UI assets to the same directory
-COPY --from=builder /app/packages/ui/dist/. ./packages/server/dist/
-
-# Bundles externalize AI SDK + zod for the debug-chat playground. Workspace
-# pnpm node_modules are symlink farms into /app/node_modules/.pnpm, so copying
-# only packages/server/node_modules leaves those links broken in the runtime
-# image. Install real copies here instead (into a clean prefix — do not use
-# packages/server/package.json, which has workspace:* deps that cannot resolve
-# in the runtime stage).
-# Versions are read from packages/server/package.json so they cannot silently
-# drift from the workspace declaration (still a separate npm install vs pnpm-lock).
-COPY --from=builder /app/packages/server/package.json /tmp/server-package.json
-RUN mkdir -p /tmp/runtime-externals /app/packages/server/node_modules && \
-    cd /tmp/runtime-externals && \
-    npm init -y >/dev/null && \
-    AI_SDK_ANTHROPIC="$(node -p "require('/tmp/server-package.json').dependencies['@ai-sdk/anthropic']")" && \
-    AI_SDK_OPENAI="$(node -p "require('/tmp/server-package.json').dependencies['@ai-sdk/openai']")" && \
-    AI_SDK="$(node -p "require('/tmp/server-package.json').dependencies['ai']")" && \
-    ZOD="$(node -p "require('/tmp/server-package.json').dependencies['zod']")" && \
-    test -n "$AI_SDK_ANTHROPIC" && test -n "$AI_SDK_OPENAI" && test -n "$AI_SDK" && test -n "$ZOD" && \
-    npm install "@ai-sdk/anthropic@${AI_SDK_ANTHROPIC}" "@ai-sdk/openai@${AI_SDK_OPENAI}" "ai@${AI_SDK}" "zod@${ZOD}" --omit=dev && \
-    cp -a /tmp/runtime-externals/node_modules/. /app/packages/server/node_modules/ && \
-    rm -rf /tmp/runtime-externals /tmp/server-package.json /root/.npm
-
-# Expose the same install to the CLI bundle resolution path
-# (/app/packages/cli/dist → … → node_modules).
-RUN mkdir -p /app/packages/cli/node_modules /app/node_modules && \
-    ln -sfn /app/packages/server/node_modules/@ai-sdk /app/packages/cli/node_modules/@ai-sdk && \
-    ln -sfn /app/packages/server/node_modules/@ai-sdk /app/node_modules/@ai-sdk && \
-    ln -sfn /app/packages/server/node_modules/ai /app/packages/cli/node_modules/ai && \
-    ln -sfn /app/packages/server/node_modules/ai /app/node_modules/ai && \
-    ln -sfn /app/packages/server/node_modules/zod /app/packages/cli/node_modules/zod && \
-    ln -sfn /app/packages/server/node_modules/zod /app/node_modules/zod
-
 # Copy PM2 configuration file
 COPY packages/server/ecosystem.config.cjs /app/
 

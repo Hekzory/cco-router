@@ -1,13 +1,17 @@
 {
   "name": "@caeliq/claude-code-router",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "cco-router: Claude Code through an OpenAI subscription",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Hekzory/cco-router.git",
     "directory": "packages/cli"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "ccr": "dist/cli.js"
   },
@@ -26,12 +30,8 @@
   "author": "caeliq",
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.122",
-    "@ai-sdk/openai": "3.0.117",
-    "ai": "6.0.290",
     "json5": "^2.2.3",
-    "shell-quote": "^1.10.0",
-    "zod": "4.6.5"
+    "shell-quote": "^1.10.0"
   },
   "devDependencies": {
     "@caeliq/ccr-server": "workspace:*",

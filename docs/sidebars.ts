@@ -113,7 +113,6 @@ const sidebars: SidebarsConfig = {
           items: [
             'server/guides/claude-auth',
             'server/guides/codex',
-            'server/guides/qwen',
             'server/guides/deepseek-reasoning',
             'server/guides/model-discovery',
             'server/guides/prompt-caching',

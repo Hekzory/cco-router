@@ -26,14 +26,6 @@ bare package name is never force-resolved across the whole graph. When an entry
 stops matching after an upstream bump, pnpm reports it as unused — that is the
 signal to delete it, not to widen the selector.
 
-### 1b. `@ai-sdk/provider-utils@4.0.54>undici` → `^8.9.0`
-- [ ] Drop when `@ai-sdk/provider-utils` raises its `undici` range to `^8` (or removes the declared dep).
-- **Why**: `@ai-sdk/provider-utils@4.0.54` declares `undici: ^6.28.0`, creating a second undici major alongside core's direct `undici@^8.9.0`. It never imports undici at runtime — its fetch path uses `globalThis.fetch` / `safe-node-fetch` (verified: zero `require("undici")` in the compiled bundle; the only `undici` string is a code comment). The declared-major collision is collapsed onto core's maintained 8 line.
-- **Maintenance note (2026-09-24)**: selector was `4.0.46`, retargeted to `4.0.54` when the AI SDK 3.0.122 / ai 6.0.290 bump moved provider-utils. Exact-version selectors go stale on every provider-utils bump — retarget, never widen.
-- **Compatibility**: undici 8 still exports the `Headers`/`fetch`/`Response` surface; provider-utils does not consume it, so the AI SDK test suite passes with the package resolving to undici 8. `pnpm why undici` now shows a single `undici@8.10.1`.
-- **Scope**: the provider-utils edge only; pnpm deduplicates it with `@caeliq/llms`'s direct `undici@^8.9.0`.
-- **Exit**: provider-utils widens its range to `^8` (or drops the dep); then delete the override and re-audit.
-
 ### 2. Compatible transitive consolidation
 - [ ] Drop each edge when its parent reaches the selected child naturally.
 - `@pnpm/network.ca-file@1.0.2>graceful-fs` → `4.2.11`: one-patch update adds `EBUSY` retry handling without changing the API.
@@ -45,13 +37,11 @@ signal to delete it, not to widen the selector.
 - `readable-stream@2.3.8>safe-buffer` and `string_decoder@1.1.1>safe-buffer` → `5.2.1`: same-major Buffer compatibility release; both consumers pass the runtime/API smoke suite.
 - `@google/genai@2>google-auth-library` → `^11.0.2`: `@google/genai` pins auth 10 while core depends on 11, and that single split was duplicating `google-auth-library`, `gcp-metadata` and `google-logging-utils` at once. Fixing it at the source removes all three pairs, which is why the two former `google-auth-library@*>google-logging-utils` edges are gone rather than retargeted. **Compatibility**: auth 10.9.1 and 11.0.2 ship a byte-identical `build/src`; the major exists only to raise `engines.node` to `>=22` (already our floor) and to take `gcp-metadata` 9 / `google-logging-utils` 2, whose `.d.ts` are likewise unchanged. `@google/genai` uses only `GoogleAuth` with `.getClient()`, `.getRequestHeaders()` and `.request()`, all present in 11; loading `@google/genai@2.17.1` from its real `.pnpm` path resolves auth `11.0.2` and constructs `GoogleGenAI` successfully. **Exit**: drop when `@google/genai` widens its range to `^11`.
 
-### 3. Docs / UI toolchain bridges
+### 3. Docs toolchain bridges
 - [ ] Drop each when its parent ships a range that reaches the maintained child.
 - `copy-webpack-plugin@11>serialize-javascript` and `css-minimizer-webpack-plugin@5>serialize-javascript` → `^7.0.7`: Docusaurus 3.10.2 is current but its Webpack plugins still pin `serialize-javascript@6`.
-- `monaco-editor@0.56.0>dompurify` → `^3.4.13`: Monaco pins DOMPurify 3.4.8.
 - `sockjs@0.3.24>uuid` → `^11.1.0` and `minimatch@3.1.5>brace-expansion` → `^5.0.8`: deprecated / unpatched transitive children of current parents.
 - `gaxios@7>node-fetch` → `npm:node-fetch-native@^1.6.7`: gaxios still requests `node-fetch@3`, whose deprecated chain is unnecessary on Node 22+ (native fetch). The selector deliberately stays on the **major**: it was pinned to `gaxios@7.3.0`, and a routine patch bump to 7.3.1 silently unmatched it, letting `node-fetch@3` → `fetch-blob` → `node-domexception` back in. pnpm does not report a stalled selector as unused, so the only symptom was a generic "1 deprecated subdependency" warning. Prefer major-scoped parents for any child that a patch bump can re-admit.
-- **Note**: `react-router` was migrated to `8.x` directly in `packages/ui`, so it no longer needs an override.
 - **Maintenance note (2026-08-25)**: the `postcss>nanoid` floor override tracks the parent version resolved in the lockfile (`postcss@8.5.26>nanoid` now; was `8.5.25`). PostCSS already declares `nanoid: ^3.3.17`, so this edge is a lockfile guard, not a forced upgrade — refresh the selector whenever postcss moves.
 - **Exit**: re-run `pnpm audit` after each upstream bump and delete entries pnpm reports as unused.
 
@@ -70,7 +60,6 @@ signal to delete it, not to widen the selector.
 ### 6. Direct-dependency currency + residual advisories (reviewed 2026-09-24)
 - `adm-zip` `^0.6.0` → `^0.6.1` in cli/server/shared: patch release clears both advisories (symlink overwrite + uncompressed-size DoS). Direct dep, no override needed.
 - **Residual (accepted, docs-only, major-split — needs opt-in to force)**: `joi@17.13.4` (2× low, fix = joi 18), `js-yaml@4.3.1` (1× high, fix = js-yaml 5). Both live only under `docs>@docusaurus/*` (build-time toolchain, never shipped to users); forcing the majors would break docusaurus 3.10.2's declared ranges. Revisit when docusaurus widens its ranges.
-- **AI SDK / ai / zod same-major rollup (2026-09-24)**: `ai` 6.0.258→6.0.290, `@ai-sdk/anthropic` 3.0.111→3.0.122, `@ai-sdk/openai` 3.0.97→3.0.117 (cli+server exact pins), `zod` 4.4.3→4.6.5 (cli exact; server `^4.4.3` follows), `@ai-sdk/react` 3.0.261→3.0.293 via `pnpm --filter @caeliq/ccr-ui update` (pairs ai 6.0.290 + provider-utils 4.0.54; needed a `minimumReleaseAgeExclude` entry for `3.0.293`). Collapses `ai`, `@ai-sdk/gateway`, `@ai-sdk/provider-utils` to one version each and keeps the §1b undici edge matching. AI SDK 3.x peer range (`zod ^3.25.76 || ^4.1.8`) admits zod 4.6.5. Full suite (typecheck/lint/test/build/docs) green after the bump.
 - **Left alone (intentional dual majors)**: `@jsonjoy/*` 1.x vs 17.x, `@sindresorhus/is` 4/5, `@types/express` 4/5 (+ serve-static/send), `@types/unist` 2/3, `css-tree` 2.2/2.3 (see §4 rejection). (`postcss-selector-parser` 6/7 was unified to 7.1.6 in the 2026-10-06 review, see §7.)
 
 ### 7. Package review 2026-10-06 (full scope: security + strong + high-risk majors)
@@ -81,4 +70,4 @@ signal to delete it, not to widen the selector.
   - `'@docusaurus/core@3.10.2>tinypool'` → `^2.2.0` (critical RCE advisories; docusaurus declares `^1.0.2`). Verified against tinypool 2.2.0 types (default export, all used options, `run`/`destroy`) and a `build:docs` run with `DOCUSAURUS_SSG_WORKER_THREAD_COUNT=2` forcing pool construction. Drop when docusaurus supports tinypool 2.
   - `'mermaid@11.16.1>katex'` → `^0.19.0` (mermaid pins `^0.16.45`; only uses stable `render`/`renderToString`).
   - Six `postcss-selector-parser` → `^7.1.6` edges (`postcss-calc`, `postcss-minify-selectors`, `postcss-merge-rules`, `postcss-unique-selectors`, `stylehacks`, `postcss-discard-unused`) plus the `@tailwindcss/typography` retarget: all declare `^6` and use only `parser(cb)` / `processSync` / `walk` / `astSync` / constructors, all present in v7 (7.0.0 changed insert-during-iteration only). The remaining preset-env/csstools legs moved via their own `^7`-admitting ranges on refresh — `postcss-selector-parser` is now single-version (7.1.6).
-- Deferred (noted, not forced): `ai` 7.x / `@ai-sdk/*` 4.x majors, `mermaid` 12, `monaco-editor` 0.57, `@google/genai` 2.18→2.27, `@modelcontextprotocol/sdk` 1.30→1.32, `openai` 7.5→7.28 (in-range but 23 minors — bump deliberately for a dedicated review), same-major tight-pin pairs (`mime-db`, `mime-types` 2.x, `ms`, `range-parser`, `cookie-signature`, `iconv-lite`, `source-map`, `babel-plugin-polyfill-corejs3` — parents pin exact/tilde ranges; override value does not justify the compat work).
+- Deferred (noted, not forced): `mermaid` 12, `@google/genai` 2.18→2.27, `@modelcontextprotocol/sdk` 1.30→1.32, `openai` 7.5→7.28 (in-range but 23 minors — bump deliberately for a dedicated review), same-major tight-pin pairs (`mime-db`, `mime-types` 2.x, `ms`, `range-parser`, `cookie-signature`, `iconv-lite`, `source-map`, `babel-plugin-polyfill-corejs3` — parents pin exact/tilde ranges; override value does not justify the compat work).

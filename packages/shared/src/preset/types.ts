@@ -85,7 +85,7 @@ export interface RequiredInput {
   required?: boolean;            // Whether required, defaults to true
   validator?: RegExp | string | ((value: any) => boolean | string);
 
-  // UI configuration
+  // Input configuration
   min?: number;                  // Minimum value (for number)
   max?: number;                  // Maximum value (for number)
   rows?: number;                 // Number of rows (for editor)
