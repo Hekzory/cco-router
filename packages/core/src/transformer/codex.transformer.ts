@@ -941,6 +941,15 @@ export class CodexTransformer implements Transformer {
       response,
       (line: string, ctx: StreamContext) => {
         ctx.controller.enqueue(encodeSSELine(line, ctx.encoder));
+        if (!line.startsWith("data:")) return;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") { ctx.stop?.(); return; }
+        try {
+          const event = JSON.parse(data);
+          if (["response.completed", "response.incomplete", "response.failed", "error"].includes(event?.type)) {
+            ctx.stop?.();
+          }
+        } catch { /* Ignore non-JSON frames, as in the collector below. */ }
       }
     );
     const text = await new Response(reader.body).text();
