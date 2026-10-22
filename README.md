@@ -8,13 +8,13 @@ Packages ship in [GitHub Releases](https://github.com/Hekzory/cco-router/release
 
 Other provider adapters remain inherited functionality. The documentation below retains their reference material, not a commitment to expand multi-provider support.
 
-The next release removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted.
+The next release removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted. Bundled Ollama, Volcengine and SiliconFlow examples are also removed; generic OpenAI-compatible routing remains available.
 
 ## Inherited features
 
 - **Adaptive Model Routing**: Route requests by scenario, including background tasks, thinking, long context, web search, FIM completions, and image workflows.
 - **Tool Use & Thinking**: Preserve tool calls, tool results, and reasoning content across providers with different API formats.
-- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Ollama, Gemini, Antigravity, Volcengine, SiliconFlow, Codex, Claude subscription, and Qwen.
+- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Antigravity, Codex, Claude subscription, and Qwen.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Native Client Protocols**: Accept Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, and FIM Completions through the same router (FIM uses a dedicated pipeline and `fim.*` transformers).
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.

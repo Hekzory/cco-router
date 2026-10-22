@@ -120,7 +120,7 @@ When a request fails, you can configure a list of backup models. The system will
 {
   "Router": {
     "default": "deepseek,deepseek-chat",
-    "background": "ollama,qwen2.5-coder:latest",
+    "background": "gemini,gemini-2.5-flash",
     "think": "deepseek,deepseek-reasoner",
     "longContext": "openrouter,google/gemini-2.5-pro-preview",
     "longContextThreshold": 60000,
@@ -132,7 +132,7 @@ When a request fails, you can configure a list of backup models. The system will
       "openrouter,anthropic/claude-sonnet-4"
     ],
     "background": [
-      "ollama,qwen2.5-coder:latest"
+      "deepseek,deepseek-chat"
     ],
     "think": [
       "openrouter,anthropic/claude-3.7-sonnet:thinking"
@@ -251,7 +251,7 @@ Automatically switches to backup models when the primary model quota is exhauste
 ```json
 {
   "Router": {
-    "background": "volcengine,deepseek-v3-250324"
+    "background": "deepseek,deepseek-chat"
   },
   "fallback": {
     "background": [

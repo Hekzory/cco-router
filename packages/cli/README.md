@@ -6,7 +6,7 @@
 
 - **Model Routing**: Route requests by scenario (background, thinking, long context, web search, FIM, image).
 - **Native Client Protocols**: Accept Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, and FIM Completions (FIM uses a dedicated pipeline and `fim.*` transformers).
-- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Ollama, Gemini, Volcengine, SiliconFlow, Codex, Claude subscription, and Qwen.
+- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Gemini, Codex, Claude subscription, and Qwen.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.
 - **CLI Model Management**: Manage models and providers directly from the terminal with `ccr model`.
@@ -131,27 +131,12 @@ Here is a comprehensive example:
       }
     },
     {
-      "name": "ollama",
-      "api_base_url": "http://localhost:11434/v1/chat/completions",
-      "api_key": "ollama",
-      "models": ["qwen2.5-coder:latest"]
-    },
-    {
       "name": "gemini",
       "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
       "api_key": "sk-xxx",
       "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemma-4-31b-it"],
       "transformer": {
         "use": ["gemini"]
-      }
-    },
-    {
-      "name": "volcengine",
-      "api_base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      "api_key": "sk-xxx",
-      "models": ["deepseek-v3-250324", "deepseek-r1-250528"],
-      "transformer": {
-        "use": ["deepseek"]
       }
     },
     {
@@ -204,7 +189,7 @@ Here is a comprehensive example:
   ],
   "Router": {
     "default": "deepseek,deepseek-chat",
-    "background": "ollama,qwen2.5-coder:latest",
+    "background": "gemini,gemini-2.5-flash",
     "think": "deepseek,deepseek-reasoner",
     "longContext": "openrouter,google/gemini-2.5-pro-preview",
     "longContextThreshold": 60000,
@@ -619,10 +604,10 @@ Transformers allow you to modify the request and response payloads to ensure com
 - **Passing Options to a Transformer**: Some transformers, like `maxtoken`, accept options. To pass options, use a nested array where the first element is the transformer name and the second is an options object.
   ```json
   {
-    "name": "siliconflow",
-    "api_base_url": "https://api.siliconflow.cn/v1/chat/completions",
-    "api_key": "sk-xxx",
-    "models": ["moonshotai/Kimi-K2-Instruct"],
+    "name": "example",
+    "api_base_url": "https://api.example.com/v1/chat/completions",
+    "api_key": "your-api-key",
+    "models": ["example-model"],
     "transformer": {
       "use": [
         [

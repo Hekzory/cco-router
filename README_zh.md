@@ -9,7 +9,7 @@ Claude Code Router 是面向 Claude Code 的自适应 LLM 网关。它会将每�
 
 - **自适应模型路由**：按场景路由请求，包括后台任务、思考、长上下文、网络搜索和图像工作流。
 - **工具调用与思考**：在不同 API 格式的提供商之间保留工具调用、工具结果和推理内容。
-- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Ollama、Gemini、Antigravity、Volcengine、SiliconFlow、Codex、Claude 订阅、Qwen。
+- **多提供商支持**：支持多种模型提供商，如 OpenRouter、DeepSeek、Gemini、Antigravity、Codex、Claude 订阅、Qwen。
 - **请求/响应转换**：使用 transformers 为不同提供商定制请求和响应。
 - **原生客户端协议**：通过同一路由器和回退管道接受 Anthropic Messages、OpenAI Chat Completions 和 OpenAI Responses 请求。
 - **动态模型切换**：在 Claude Code 中使用 `/model` 命令即时切换模型。

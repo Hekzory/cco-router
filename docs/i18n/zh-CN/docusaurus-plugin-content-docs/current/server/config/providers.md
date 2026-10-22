@@ -155,31 +155,6 @@ sidebar_position: 2
 }
 ```
 
-### Ollama（本地模型）
-
-```json
-{
-  "name": "ollama",
-  "api_base_url": "http://localhost:11434/v1/chat/completions",
-  "api_key": "ollama",
-  "models": ["qwen2.5-coder:latest"]
-}
-```
-
-### 火山引擎
-
-```json
-{
-  "name": "volcengine",
-  "api_base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-  "api_key": "your-api-key",
-  "models": ["deepseek-v3-250324", "deepseek-r1-250528"],
-  "transformer": {
-    "use": ["deepseek"]
-  }
-}
-```
-
 ### ModelScope
 
 ```json
