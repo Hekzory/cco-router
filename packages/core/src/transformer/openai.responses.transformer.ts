@@ -25,7 +25,7 @@ import {
   normalizeResponsesInclude,
   recordReasoningSummaryDelta,
   responsesFailedEvent,
-  responsesReasoningItemFromThinking,
+  responsesReasoningInputItemFromThinking,
   responsesRequestToUnified,
   resolveResponsesInboundCompat,
   hostedWebSearchFromResponsesTools,
@@ -562,8 +562,12 @@ export class OpenAIResponsesTransformer implements Transformer {
     request = applyOpenAIChatCaching(request, provider, context);
     // Anthropic/Chat cannot round-trip Responses ciphertext. Request
     // reasoning.encrypted_content and restore prior-turn ciphertext onto
-    // assistant tool turns before the Responses input is built.
-    prepareEncryptedReasoningReplay(request, provider, context);
+    // assistant turns before the Responses input is built.
+    const { restoredFromCache } = prepareEncryptedReasoningReplay(
+      request,
+      provider,
+      context
+    );
     const messages = validateOpenAIToolCalls(request.messages);
     request.messages = messages;
 
@@ -604,11 +608,14 @@ export class OpenAIResponsesTransformer implements Transformer {
       }
     });
 
+    let summaryOnlyReasoning = 0;
     const pushReasoningFromMessage = (message: any) => {
-      const reasoningItem = responsesReasoningItemFromThinking(
+      const reasoningItem = responsesReasoningInputItemFromThinking(
         thinkingFromUnifiedAssistant(message)
       );
-      if (reasoningItem) input.push(reasoningItem);
+      if (!reasoningItem) return;
+      if (!reasoningItem.id) summaryOnlyReasoning++;
+      input.push(reasoningItem);
     };
 
     request.messages.forEach((message) => {
@@ -696,7 +703,22 @@ export class OpenAIResponsesTransformer implements Transformer {
     });
 
     (request as any).input = input;
-    uniquifyReasoningItemIds(input);
+    const droppedDuplicateReasoningRefs = uniquifyReasoningItemIds(input);
+    if (
+      restoredFromCache ||
+      summaryOnlyReasoning ||
+      droppedDuplicateReasoningRefs
+    ) {
+      this.logger?.debug?.(
+        {
+          type: "responses_reasoning_replay",
+          restoredFromCache,
+          summaryOnlyReasoning,
+          droppedDuplicateReasoningRefs,
+        },
+        "responses reasoning replay"
+      );
+    }
     delete (request as any).messages;
 
     if (Array.isArray(request.tools)) {
