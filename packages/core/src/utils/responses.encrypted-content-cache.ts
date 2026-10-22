@@ -459,17 +459,24 @@ function canonicalScopeMessage(message: MessageLike) {
   return canonical;
 }
 
-function conversationScope(messages: MessageLike[], namespace: string): string {
-  const scopeMessages = messages
-    .filter((message) => message.role !== "system")
-    .map((message) => canonicalScopeMessage(message));
-
-  return hash(
-    stableStringify({
-      namespace,
-      messages: scopeMessages,
-    })
-  );
+function createConversationScope(namespace: string) {
+  // Hash canonical messages once as history grows, rather than reserializing
+  // every preceding turn for each assistant (quadratic on long histories).
+  // This retains stableStringify({ messages, namespace })'s exact byte shape.
+  const digest = createHash("sha256").update('{"messages":[');
+  let count = 0;
+  return {
+    append(message: MessageLike): void {
+      if (message.role === "system") return;
+      if (count++) digest.update(",");
+      digest.update(stableStringify(canonicalScopeMessage(message)));
+    },
+    current(): string {
+      return digest.copy()
+        .update(`],"namespace":${JSON.stringify(namespace)}}`)
+        .digest("hex");
+    },
+  };
 }
 
 function getInlineEncryptedPayload(
@@ -642,12 +649,12 @@ export function prepareEncryptedReasoningReplay(
     provider,
     context
   );
-  const priorMessages: MessageLike[] = [];
+  const conversation = createConversationScope(namespace);
   let restoredFromCache = 0;
 
   for (const message of request.messages as MessageLike[]) {
     if (message.role === "assistant") {
-      const scope = conversationScope(priorMessages, namespace);
+      const scope = conversation.current();
       // Chat clients drop ciphertext on text answers too. Restore every
       // matching assistant turn so subsequent requests keep the provider's
       // reasoning state and the same cacheable prefix.
@@ -662,7 +669,7 @@ export function prepareEncryptedReasoningReplay(
       storeAssistantEncryptedReasoning(message, scope);
     }
 
-    priorMessages.push(message);
+    conversation.append(message);
   }
 
   // Always ask Responses destinations for ciphertext when the client cannot
@@ -681,10 +688,7 @@ export function prepareEncryptedReasoningReplay(
     (context.req as any)[CONTEXT_KEY] = {
       enabled: true,
       namespace,
-      requestScope: conversationScope(
-        request.messages as MessageLike[],
-        namespace
-      ),
+      requestScope: conversation.current(),
     } satisfies RequestContextState;
   }
 
