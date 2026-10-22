@@ -466,7 +466,6 @@ function applyResponsesLite(request: Record<string, any>): void {
   request.input = tools.length
     ? [{ type: "additional_tools", role: "developer", tools }, ...input]
     : input;
-  request.parallel_tool_calls = false;
   request.reasoning = { ...request.reasoning, context: "all_turns" };
 }
 
@@ -499,7 +498,17 @@ function applyCodexWireConstraints(
 
   request.store = false;
   request.stream = true;
-  request.parallel_tool_calls = provider?.parallelToolCalls === true;
+  const modelSpec = codexModelSpec(request.model);
+  // Codex client 9a8a85bc5393 disables parallel calls for Lite even when the
+  // catalog advertises model support. Unlisted routes retain provider opt-in.
+  const supportsParallel = modelSpec
+    ? modelSpec.supportsParallelToolCalls && !modelSpec.responsesLite
+    : provider?.parallelToolCalls === true;
+  request.parallel_tool_calls = supportsParallel && (
+    typeof request.parallel_tool_calls === "boolean"
+      ? request.parallel_tool_calls
+      : provider?.parallelToolCalls === true
+  );
 
   if (!request.prompt_cache_key) {
     const cacheKey = deriveCacheSessionKey(context, request as any);

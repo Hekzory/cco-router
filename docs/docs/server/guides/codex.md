@@ -203,6 +203,15 @@ adds or retires models.
   "developer"}` input item (function and custom tools grouped in the
   `functions` namespace), `parallel_tool_calls` is `false`, `reasoning.context`
   is `all_turns`, and input images carry no `detail`.
+- **Parallel tool calls**: on classic routes with catalog support (for example,
+  `gpt-5.5`), an explicit client `parallel_tool_calls` wins over the provider's
+  `parallelToolCalls` default. Anthropic `disable_parallel_tool_use: true`
+  therefore stays serial. Unknown models require provider opt-in. Astra/Sol's
+  catalog advertises parallel support, but the [official Codex client at
+  `9a8a85bc5393`](https://github.com/openai/codex/blob/9a8a85bc539325f2819dd0717f88b6ba6286495e/codex-rs/core/src/client.rs#L1117)
+  still disables it for Lite; CCR retains that wire shape. Enabling parallel
+  Lite calls needs a live backend check, not just the catalog flag. Serial
+  calls do not prevent already-launched background agents from running together.
 - **Verbosity** is sent as `text.verbosity`. The client's value wins, then the
   provider's `verbosity`, then the value implied by `REASONING_AUTO_SUMMARY`
   (`detailed` → `high`, `auto` → `medium`, `concise` → `low`) for catalog

@@ -28,6 +28,8 @@ export interface CodexModelSpec {
   responsesLite: boolean;
   /** `support_verbosity`. */
   verbosity: boolean;
+  /** Catalog support; Responses Lite still requires serial calls on the wire. */
+  supportsParallelToolCalls: boolean;
 }
 
 const LOW_TO_XHIGH: readonly ThinkLevel[] = ["low", "medium", "high", "xhigh"];
@@ -42,9 +44,13 @@ const lite = (
   ...(ultraEffort ? { ultraEffort } : {}),
   responsesLite: true,
   verbosity: true,
+  supportsParallelToolCalls: true,
 });
 
-/** Codex `models-manager/models.json` at codex commit 822e58cc3d. */
+/**
+ * Codex `models-manager/models.json` at 822e58cc3d; parallel support flags
+ * verified against 9a8a85bc5393 (Lite wire support remains separate).
+ */
 const CODEX_MODEL_CATALOG: Readonly<Record<string, CodexModelSpec>> = {
   "gpt-6-astra": lite(LOW_TO_ULTRA, "xhigh"),
   "gpt-6.1-sol": lite(LOW_TO_ULTRA, "xhigh"),
@@ -56,7 +62,12 @@ const CODEX_MODEL_CATALOG: Readonly<Record<string, CodexModelSpec>> = {
   "gpt-daybreak-blue-latest": lite(LOW_TO_ULTRA),
   "gpt-daybreak-red-latest": lite(LOW_TO_ULTRA),
   "codex-auto-review": lite(LOW_TO_MAX),
-  "gpt-5.5": { efforts: LOW_TO_XHIGH, responsesLite: false, verbosity: true },
+  "gpt-5.5": {
+    efforts: LOW_TO_XHIGH,
+    responsesLite: false,
+    verbosity: true,
+    supportsParallelToolCalls: true,
+  },
 };
 
 /**
