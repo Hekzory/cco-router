@@ -20,7 +20,7 @@ import { OpenAIResponsesTransformer } from "../transformer/openai.responses.tran
 async function exactRequestCoversEveryOwner() {
   for (const name of ["Anthropic", "OpenAI", "openai-responses"]) {
     const endpoint: any = { name };
-    const plan = compileTransformerPlan([endpoint, { name: "xai-auth" } as any], []);
+    const plan = compileTransformerPlan([endpoint, { name: "opencode-headers" } as any], []);
     assert.equal(isExactProtocolRequestPlan(plan, endpoint, name), true, `request exact ${name}`);
     assert.equal(isExactProtocolResponsePlan(plan, endpoint, name), true, `response exact ${name}`);
     assert.equal(isExactProtocolRequestPlan(plan, endpoint, "different"), false, `request not exact ${name}`);
@@ -29,12 +29,12 @@ async function exactRequestCoversEveryOwner() {
 
 async function exactRequestFalseWhenOwnerMissing() {
   const endpoint: any = { name: "openai-responses" };
-  const plan = compileTransformerPlan([{ name: "xai-auth" } as any], []);
+  const plan = compileTransformerPlan([{ name: "opencode-headers" } as any], []);
   assert.equal(isExactProtocolRequestPlan(plan, endpoint, "openai-responses"), false, "missing owner -> not exact");
 }
 
 async function wireSafeAllowlist() {
-  assert.equal(isWireSafeMiddlewareForKeep("xai-auth", "openai-responses"), true);
+  assert.equal(isWireSafeMiddlewareForKeep("xai-auth", "openai-responses"), false);
   assert.equal(isWireSafeMiddlewareForKeep("opencode-headers", "Anthropic"), true);
   assert.equal(isWireSafeMiddlewareForKeep("opencode-headers", "openai-responses"), true);
   assert.equal(isWireSafeMiddlewareForKeep("qwen-auth", "OpenAI"), true);
@@ -83,9 +83,9 @@ async function responsesWirePreservesDetailAndFile() {
   };
   // Wire-keep plan contains owner, so predicate true -> body stays as input[], detail/file intact
   const endpoint: any = { name: "openai-responses" };
-  const plan = compileTransformerPlan([{ name: "xai-auth" } as any, endpoint], []);
+  const plan = compileTransformerPlan([{ name: "opencode-headers" } as any, endpoint], []);
   assert.equal(isExactProtocolRequestPlan(plan, endpoint, "openai-responses"), true);
-  assert.equal(isWireSafeMiddlewareForKeep("xai-auth", "openai-responses"), true);
+  assert.equal(isWireSafeMiddlewareForKeep("opencode-headers", "openai-responses"), true);
   const input = wire.input as any[];
   const fco = input.find((i: any) => i.type === "function_call_output");
   assert.equal(fco.output[1].detail, "high", "detail preserved on wire");

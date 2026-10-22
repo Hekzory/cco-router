@@ -6,13 +6,15 @@ Derived from [oakimov/claude-code-router v2.1.15](https://github.com/oakimov/cla
 
 Packages ship in [GitHub Releases](https://github.com/Hekzory/cco-router/releases). The npm package names, `ccr` command, `ccodex` launcher and config paths are unchanged for now; only the repository/product name changes. See [publishing](docs/PUBLISHING.md) and the [Codex setup guide](docs/docs/server/guides/codex.md).
 
-Other provider adapters remain inherited functionality; this release does not remove them. The documentation below retains their reference material, not a commitment to expand multi-provider support.
+Other provider adapters remain inherited functionality. The documentation below retains their reference material, not a commitment to expand multi-provider support.
+
+The next release removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted.
 
 ## Inherited features
 
 - **Adaptive Model Routing**: Route requests by scenario, including background tasks, thinking, long context, web search, FIM completions, and image workflows.
 - **Tool Use & Thinking**: Preserve tool calls, tool results, and reasoning content across providers with different API formats.
-- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Ollama, Gemini, Antigravity, Volcengine, SiliconFlow, Codex, Claude subscription, Qwen, Chrome On-Device, and Cursor (SDK).
+- **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Ollama, Gemini, Antigravity, Volcengine, SiliconFlow, Codex, Claude subscription, and Qwen.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Native Client Protocols**: Accept Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, and FIM Completions through the same router (FIM uses a dedicated pipeline and `fim.*` transformers).
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.
@@ -34,17 +36,11 @@ The following changes come from the Claude Code Router lineage and remain availa
 - **Gemini Stability & Tool Use Fixes**: Corrected `thoughtSignature` placement in Gemini request bodies (Gemini 3 expects it as a sibling field on the `functionCall` part itself, and validates only the first such part per step); filtered synthetic `ccr_` placeholder signatures from outgoing Gemini requests to prevent Gemini 500 errors; fixed `tool_result` content-array serialization in the Anthropic transformer so models receive plain text instead of JSON-wrapped arrays (resolves "Error editing file" in Claude Code); fixed Fastify `onSend` hook to prevent `invalid type 'object'` unhandled rejections on error responses.
 - **Codex (ChatGPT) Integration**: ChatGPT backend over the Responses API. **Requires** `"use": ["openai-responses", "codex"]`. Supports OAuth (`ccr codex-auth`) and PAT (`api_key: "at-..."`), SSE streaming, encrypted reasoning replay, tool calls with web search, and image handling.
 - **Gateway and Codex model discovery**: The server's OpenAI-compatible `GET /v1/models` enriches configured models with native-provider metadata from models.dev (friendly names, descriptions, context/output limits, reasoning effort levels, and Claude Desktop family tiers). `MODEL_ID_OUTPUT` controls whether discovery emits literal canonical IDs (the default) or masks otherwise-filtered IDs as reversible `claude-<lowercase UTF-8 hex>` aliases. Inbound always accepts both forms. Separately, the CLI's `ccr codex-config` command uses the same exact-model/native-provider matching rule for Codex's local picker catalog: a unique model-id row is authoritative, duplicate ids are resolved to the native provider, and a true miss falls back to a 200K context window with `low`/`medium`/`high` effort. It also wires Codex's `config.toml` to route over the Responses API.
-- **Cursor SDK Integration**: Added `cursor-sdk` transformer that runs Cursor models in-process via `@cursor/sdk`. Default **bridge** mode keeps Claude Code as the tool host (Cursor built-ins denied); supports `plan` / `agent` modes, `crsr_` / `CURSOR_API_KEY` auth, `ccr model get cursor` model discovery, and Docker runtime install of the SDK native packages.
 - **Claude Subscription Integration**: Added `claude-auth` support for routing through a Claude Pro or Max subscription via OAuth (`ccr claude-auth`), using the `claude-auth` + `Anthropic` transformer chain.
 - **Antigravity Integration**: Added Google Antigravity OAuth via `ccr antigravity-auth`, with the `antigravity-auth` + `gemini` transformer chain targeting the Antigravity / `cloudcode-pa` API. Supports Gemini and Claude models under that quota, thought-signature round-tripping / fallback, and Claude tool-schema sanitization for Gemini-backed Claude models. Requires `gemini` options `{"cachedContent": false}` because Antigravity has no Google `cachedContents` resource (leaving the default `true` causes 404s).
 - **Qwen Chat Integration**: Added `qwen-auth` transformer for the Qwen Chat backend (`qwen.aikit.club/v1/chat/completions`), supporting JWT-based authentication (`ccr qwen-auth`) where the user pastes a token copied from `chat.qwen.ai` localStorage, automatic token rotation, and stripping of the trailing `<details>...</details>` metadata block Qwen injects into responses.
-- **xAI Grok Integration**: Added `xai-auth` transformer for xAI's Grok models over the Responses API (`openai-responses`), supporting both device-code OAuth (`ccr xai-auth`, backed by a SuperGrok/X Premium+ subscription — no local callback server needed) and a plain `xai-...` API key / `$XAI_API_KEY`, plus `ccr model get` autodiscovery for either mode.
 - **DeepSeek Reasoning Replay**: Implemented mandatory reasoning replay for DeepSeek models (e.g., via OpenCode/ZenGo). DeepSeek requires previous assistant reasoning content to be included in subsequent requests — the `reasoning` transformer automatically replays reasoning output from prior turns.
 - **Model Discovery**: Enabled non-interactive model discovery for arbitrary API providers. Using `ccr model get <provider>`, the tool automatically fetches remote models, parses custom JSON structures using configurable paths, and appends missing models to the local configuration while preserving existing settings.
-- **Chrome On-Device Model**: Added `chrome-on-device` transformer for Chrome's built-in Gemini Nano (~4GB local model). Communicates via a bridge process (`ccr chrome-bridge`) that connects to Chrome's Prompt API over CDP. Uses `responseConstraint` for structured JSON output (tool calls + text), supports streaming and non-streaming, exposes an OpenAI-compatible `/v1/chat/completions` endpoint, and replaces Claude Code's system prompt with a minimal tool-focused one. Zero API cost, zero latency to external providers.
-  - **Stability & Prompting**: Implemented an "OPERATIONAL OVERRIDE" in the system prompt to prevent hallucinations and force adherence to user-provided paths.
-  - **Stall Recovery**: Added a tiered retry mechanism for whitespace-heavy content: if the model stalls (emits 1000+ whitespace chars), the bridge aborts and retries without constraints and with increased temperature (Dynamic Temperature Scaling).
-  - **Contextual awareness**: Added labels ("Tool Result:") to tool outputs and instructed the model to check for existing results before calling tools again.
 
 ## 🚀 Getting Started
 
@@ -54,7 +50,7 @@ The following changes come from the Claude Code Router lineage and remain availa
 
 Before you begin, ensure you have the following installed on your system:
 - **Docker** (Recommended): The primary way to run the router via the published image. See [Docker Install Guide](https://docs.docker.com/get-docker/).
-- **Node.js** (Optional): Required to run from source, publish packages, or use the **Chrome On-Device** bridge. This fork requires **Node.js ≥ 22.19.0** (needed by `undici`). See [Node.js Download](https://nodejs.org/).
+- **Node.js** (Optional): Required to run from source, or publish packages. This fork requires **Node.js ≥ 22.19.0** (needed by `undici`). See [Node.js Download](https://nodejs.org/).
 - **Claude Code**: See the [official quickstart guide](https://code.claude.com/docs/en/quickstart) for installation instructions.
 
 #### Quick Start with Docker
@@ -257,13 +253,13 @@ ccr model get gemini
 ccr model get openai
 ```
 
-`ccr model get <provider>` fetches remote models, then prompts to append missing ones and remove configured ones the API no longer returns. Built-in endpoint support exists for `anthropic`/`claude`, `gemini`, `openai`, `codex`, `cursor`, and `xai` (resolves the same PAT-or-OAuth credential `xai-auth` uses). Other providers can use `models_api_url` plus a `models_response_format` (`listPath`, `idPath`, `stripPrefix`) to parse custom JSON responses.
+`ccr model get <provider>` fetches remote models, then prompts to append missing ones and remove configured ones the API no longer returns. Built-in endpoint support exists for `anthropic`/`claude`, `gemini`, `openai`, and `codex`. Other providers can use `models_api_url` plus a `models_response_format` (`listPath`, `idPath`, `stripPrefix`) to parse custom JSON responses.
 
 > **See also**: `docs/docs/server/guides/model-discovery.md` and `docs/docs/cli/commands/model-get.md`.
 >
 > **Note**: After syncing models into `config.json`, restart the service with `ccr restart`.
 
-> **Note — account OAuth providers**: The provider auth flows below (Antigravity, Codex, Claude subscription, Qwen, xAI Grok) authenticate through your account-level OAuth session rather than a dedicated API key. See [DISCLAIMER.md](DISCLAIMER.md) for the interoperability and compliance notes that apply to those providers.
+> **Note — account OAuth providers**: The provider auth flows below (Antigravity, Codex, Claude subscription, Qwen) authenticate through your account-level OAuth session rather than a dedicated API key. See [DISCLAIMER.md](DISCLAIMER.md) for the interoperability and compliance notes that apply to those providers.
 
 #### Antigravity Authentication
 
@@ -314,12 +310,6 @@ An `at-` value is always treated as a PAT and never silently falls back to OAuth
 
 > **See also**: Full Codex setup, both auth modes, provider config, and troubleshooting are in `docs/docs/server/guides/codex.md`.
 
-#### Cursor Provider Authentication
-
-The Cursor provider runs models in-process via the official `@cursor/sdk` (no browser OAuth CLI). Auth resolves from the provider `api_key` starting with `crsr_`, then `CURSOR_API_KEY`. Default **bridge** mode keeps Claude Code as the tool host; Cursor built-ins are denied in an isolated workspace. Discover models with `ccr model get cursor`.
-
-> **See also**: Full Cursor setup, bridge/plan/agent modes, and configuration are in `docs/docs/server/guides/cursor.md`.
-
 #### Claude Subscription Authentication
 
 Route Claude Code through your Claude Pro or Max subscription via OAuth:
@@ -343,52 +333,6 @@ ccr qwen-auth
 The CCR server hosts an auth page at `/qwen/auth` offering a bookmarklet or manual paste. The token is validated, saved to `~/.claude-code-router/qwen_auth.json`, and auto-refreshed. The Qwen provider requires the `qwen-auth` + `reasoning` + `OpenAI` transformer chain.
 
 > **See also**: Full Qwen setup and provider config are in `docs/docs/server/guides/qwen.md`.
-
-#### xAI Grok Authentication
-
-The xAI provider supports two authentication modes:
-
-- **OAuth** via `ccr xai-auth` — an RFC 8628 device-code flow against `auth.x.ai`, backed by a SuperGrok or X Premium+ subscription. Unlike Codex/Claude/Antigravity, this needs **no server callback route or port mapping** — the CLI prints a verification URL, you approve it in any browser on any device, and the CLI polls in the background. Tokens are stored in `~/.claude-code-router/xai_auth.json` and auto-refreshed.
-- **PAT** via a literal `api_key: "xai-..."` (or an env var containing one, e.g. `$XAI_API_KEY`) — skips `ccr xai-auth` entirely.
-
-A `xai-` value is always treated as a PAT and never silently falls back to OAuth; any other placeholder (e.g. `"no-key"`) selects OAuth tokens.
-
-```shell
-ccr xai-auth
-```
-
-Example provider (either auth mode uses the same transformer chain):
-
-```json
-{
-  "name": "xai-subscription",
-  "api_base_url": "https://api.x.ai/v1",
-  "api_key": "no-key",
-  "models": ["grok-4.6", "grok-4.3", "grok-code-fast-1"],
-  "transformer": {
-    "use": ["xai-auth", "openai-responses"]
-  }
-}
-```
-
-`xai-auth` resolves the credential and injects it as a `Bearer` token; `openai-responses` owns the `/v1/responses` wire format, xAI's current default API surface.
-
-> **See also**: Full xAI setup, both auth modes, and troubleshooting are in `docs/docs/server/guides/xai-auth.md`.
-
-#### Chrome On-Device Bridge
-
-Use Chrome's built-in Gemini Nano (~4GB local model) with zero API cost via a host-side bridge:
-
-```bash
-ccr chrome-bridge            # default: port 3457, CDP 9222
-ccr chrome-bridge --port 3457 --cdp 9222
-```
-
-The bridge connects to Chrome's Prompt API over CDP, maintains persistent model sessions, and exposes an OpenAI-compatible API (`/v1/chat/completions`) on `127.0.0.1:3457`. It replaces Claude Code's system prompt with a minimal tool-focused one and uses `responseConstraint` (JSON Schema) to force structured `{text, tool_calls[]}` output.
-
-**Prerequisites**: enable `chrome://flags/#optimization-guide-on-device-model` and `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input`, restart Chrome, and let the ~4GB model download.
-
-> **Note for Docker**: The bridge runs on the Docker **host**, not inside the container — set the provider host to `http://host.docker.internal:3457`. Full setup, provider config, features, and limitations are in `docs/docs/server/guides/chrome-on-device.md`.
 
 ### 6. Presets Management
 
@@ -443,7 +387,7 @@ The `Providers` array defines each provider: `name`, `api_base_url`, `api_key`, 
 
 - Protocol owners: `Anthropic` (`/v1/messages`), `OpenAI` (`/v1/chat/completions`), `openai-responses` (`/v1/responses`), `Fim` (`/v1/fim/completions`).
 - FIM provider adapters: `fim.mistral`, `fim.deepseek`, `fim.qwen` (dedicated FIM providers only — do not stack with chat transformers).
-- Provider adapters: `deepseek`, `groq`, `mistral`, `openrouter`, `gemini` / `vertex-gemini`, `codex` (pair with `openai-responses`), `claude-auth` (pair with `Anthropic`), `antigravity-auth`, `qwen-auth`, `xai-auth`, `cursor-sdk`, `chrome-on-device`.
+- Provider adapters: `deepseek`, `groq`, `mistral`, `openrouter`, `gemini` / `vertex-gemini`, `codex` (pair with `openai-responses`), `claude-auth` (pair with `Anthropic`), `antigravity-auth`, `qwen-auth`.
 - `maxtoken` — sets a specific `max_tokens`. `tooluse` — optimizes tool usage via `tool_choice`. `reasoning` — replays provider `reasoning_content` across turns. `sampling` — maps `temperature` / `top_p` / `top_k` / `repetition_penalty`. `enhancetool` — adds error tolerance to tool-call parameters (disables streaming of tool calls). `cleancache` — clears `cache_control`. `customparams` — injects custom request parameters.
 - Experimental gist/CLI integrations: `gemini-cli`, `chutes-glm`, `qwen-cli`, `rovo-cli`.
 
@@ -503,7 +447,6 @@ CCR translates Claude Code's Anthropic cache intent into each upstream's native 
 - OpenRouter uses sticky `session_id` routing plus model-native caching. Vercel AI Gateway receives `providerOptions.gateway.caching: "auto"`.
 - Mistral and Cerebras receive native `prompt_cache_key` values. Qwen/DashScope receives a final-content cache marker. DeepSeek, Groq, and Vertex OpenAI retain their native implicit caching.
 - Gemini and Vertex Gemini use implicit caching and create/reuse native CachedContent resources for sufficiently large stable system/tool prefixes.
-- Cursor SDK and Chrome On-Device reuse stable native sessions.
 
 Provider-incompatible cache fields are removed only after translation. Cache read/write usage reported upstream is converted back to Anthropic `cache_read_input_tokens` and `cache_creation_input_tokens` for Claude Code.
 
@@ -581,5 +524,4 @@ This setup allows for interesting automations, like running tasks during off-pea
 ## 📝 Further Reading
 
 - [Codex API](https://developers.openai.com/codex/sdk) — Developer docs for the ChatGPT backend API used by the `codex` transformer (OAuth PKCE, Responses API, streaming, tool calls)
-- [Chrome Prompt API](https://developer.chrome.com/docs/ai/prompt-api) — On-device Gemini Nano API used by the `chrome-on-device` transformer and bridge
-- [Provider Integration Lessons](tasks/lessons.md) — Hard-won knowledge for LLM provider integrations (DeepSeek, Mistral, Gemini, Codex, Gemini Nano)
+- [Provider Integration Lessons](tasks/lessons.md) — Hard-won knowledge for LLM provider integrations (DeepSeek, Mistral, Gemini, Codex)

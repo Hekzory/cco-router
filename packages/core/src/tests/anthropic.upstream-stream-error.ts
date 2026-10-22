@@ -3,7 +3,7 @@ import { AnthropicTransformer } from "../transformer/anthropic.transformer";
 
 async function main() {
   const upstreamError = Object.assign(
-    new Error("Cursor usage limit exceeded"),
+    new Error("Provider usage limit exceeded"),
     {
       type: "api_error",
       code: "provider_response_error",
@@ -27,17 +27,17 @@ async function main() {
     error() {},
   };
   const response = await transformer.transformResponseIn(upstream, {
-    req: { id: "cursor-stream-error" },
+    req: { id: "upstream-stream-error" },
   } as any);
   const body = await response.text();
 
   assert.match(body, /event: error/);
   assert.match(body, /"type":"api_error"/);
-  assert.match(body, /Cursor usage limit exceeded/);
+  assert.match(body, /Provider usage limit exceeded/);
   assert.doesNotMatch(body, /event: message_stop/);
   assert.doesNotMatch(body, /"stop_reason":"end_turn"/);
 
-  console.log("cursor-sdk.stream-error: ok");
+  console.log("anthropic.upstream-stream-error: ok");
 }
 
 main().catch((error) => {

@@ -109,31 +109,6 @@ sidebar_position: 2
 }
 ```
 
-### Cursor（SDK）
-
-通过 `@cursor/sdk` 路由到 Cursor 模型。认证使用以 `crsr_` 开头的控制台密钥，或环境变量 `CURSOR_API_KEY`。
-
-```json
-{
-  "name": "cursor",
-  "api_base_url": "https://cursor.com",
-  "api_key": "$CURSOR_API_KEY",
-  "models": ["composer-2", "claude-opus-4-8", "gpt-5.4"],
-  "transformer": {
-    "use": [
-      [
-        "cursor-sdk",
-        {
-          "cursorMode": "bridge"
-        }
-      ]
-    ]
-  }
-}
-```
-
-使用 `ccr model get cursor` 发现模型。详见 [Cursor SDK 集成指南](/docs/server/guides/cursor)。
-
 ### Antigravity
 
 通过 Google Antigravity 网关路由，使用 `ccr antigravity-auth` 完成 OAuth。将 `gemini` 链接在 `antigravity-auth` **之前**。
@@ -176,22 +151,6 @@ sidebar_position: 2
   "models": ["qwen-max", "qwen-plus", "qwen-turbo"],
   "transformer": {
     "use": ["qwen-auth", "reasoning", "OpenAI"]
-  }
-}
-```
-
-### Chrome 内置模型（Gemini Nano）
-
-需要运行 `ccr chrome-bridge` 桥接进程。
-
-```json
-{
-  "name": "chrome",
-  "baseUrl": "http://127.0.0.1:9229",
-  "apiKey": "dummy",
-  "models": ["gemini-nano"],
-  "transformer": {
-    "use": ["chrome-on-device"]
   }
 }
 ```
@@ -312,9 +271,7 @@ sidebar_position: 2
 ```
 deepseek,deepseek-chat
 codex,gpt-5
-cursor,composer-2
 claude-subscription,claude-sonnet-4-6
-chrome-nano,gemini-nano
 ```
 
 ## FIM 提供商

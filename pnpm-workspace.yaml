@@ -53,12 +53,6 @@ minimumReleaseAgeExclude:
   - '@ai-sdk/anthropic@3.0.122'
   - '@ai-sdk/openai@3.0.117'
   - '@ai-sdk/provider-utils@4.0.54'
-  - '@cursor/sdk-darwin-arm64@1.0.36'
-  - '@cursor/sdk-darwin-x64@1.0.36'
-  - '@cursor/sdk-linux-arm64@1.0.36'
-  - '@cursor/sdk-linux-x64@1.0.36'
-  - '@cursor/sdk-win32-x64@1.0.36'
-  - '@cursor/sdk@1.0.36'
 overrides:
   # Upstream parents are current but cannot reach these maintained children yet.
   # Keep every compatibility/security bridge scoped to the exact dependency edge.
@@ -70,10 +64,6 @@ overrides:
   # unmatched the old `7.3.0` pin and let node-fetch 3 (and its deprecated
   # node-domexception chain) back into the tree without pnpm reporting it.
   'gaxios@7>node-fetch': npm:node-fetch-native@^1.6.7
-  # @cursor/sdk currently pulls connect-node 1.7 -> undici 5. Connect-node only
-  # imports Headers (and only uses it on Node <18), so share core's direct
-  # maintained undici 8 line instead of installing a second major.
-  '@connectrpc/connect-node@1.7.0>undici': ^8.9.0
   # @ai-sdk/provider-utils@4.0.54 declares undici ^6.28.0 but never imports it
   # (its fetch path uses globalThis.fetch / safe-node-fetch). Collapse the
   # declared major onto core's maintained undici 8 line to drop the 6.x major.

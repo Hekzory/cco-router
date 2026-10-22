@@ -1436,7 +1436,7 @@ export class OpencodeHeadersTransformer implements Transformer {
 
   private getOrCreateSessionId(key: string): string {
     // Fixed id per conversation, durable across CCR restarts via the shared
-    // session registry (same mechanism as cursor agent bindings).
+    // session registry.
     const persisted = getPersistedSession("zen", key);
     if (persisted) return persisted.sessionId;
 

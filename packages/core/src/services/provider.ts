@@ -68,7 +68,7 @@ export class ProviderService {
               if (Array.isArray(providerConfig.transformer.use)) {
                 transformer.use = providerConfig.transformer.use.map((transformer) => {
                   if (Array.isArray(transformer) && typeof transformer[0] === 'string') {
-                    const Constructor = this.transformerService.getTransformer(transformer[0]);
+                    const Constructor = this.requireTransformer(transformer[0]);
                     if (Constructor) {
                       return this.attachTransformerLogger(
                         new (Constructor as TransformerConstructor)(transformer[1])
@@ -76,7 +76,7 @@ export class ProviderService {
                     }
                   }
                   if (typeof transformer === 'string') {
-                    const transformerInstance = this.transformerService.getTransformer(transformer);
+                    const transformerInstance = this.requireTransformer(transformer);
                     if (typeof transformerInstance === 'function') {
                       return this.attachTransformerLogger(new transformerInstance());
                     }
@@ -91,7 +91,7 @@ export class ProviderService {
                 transformer[key] = {
                   use: providerConfig.transformer[key].use.map((transformer: TransformerConfigEntry) => {
                     if (Array.isArray(transformer) && typeof transformer[0] === 'string') {
-                      const Constructor = this.transformerService.getTransformer(transformer[0]);
+                      const Constructor = this.requireTransformer(transformer[0]);
                       if (Constructor) {
                         return this.attachTransformerLogger(
                           new (Constructor as TransformerConstructor)(transformer[1])
@@ -99,7 +99,7 @@ export class ProviderService {
                       }
                     }
                     if (typeof transformer === 'string') {
-                      const transformerInstance = this.transformerService.getTransformer(transformer);
+                      const transformerInstance = this.requireTransformer(transformer);
                       if (typeof transformerInstance === 'function') {
                         return this.attachTransformerLogger(new transformerInstance());
                       }
@@ -129,6 +129,14 @@ export class ProviderService {
         this.logger.error(`${providerConfig.name} provider registered error: ${error}`);
       }
     });
+  }
+
+  private requireTransformer(name: string) {
+    const transformer = this.transformerService.getTransformer(name);
+    if (!transformer) {
+      throw new Error(`Unknown transformer "${name}"; remove or replace it in the provider configuration.`);
+    }
+    return transformer;
   }
 
   /** Match TransformerService: instances used in provider use[] need the service logger. */

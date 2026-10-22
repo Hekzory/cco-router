@@ -24,7 +24,6 @@ export function getAuthHintKey(provider: Provider):
   | "codex_pat"
   | "codex_oauth"
   | "antigravity_oauth"
-  | "xai_oauth"
   | "missing_api_key"
   | "env_auth"
   | null {
@@ -43,9 +42,6 @@ export function getAuthHintKey(provider: Provider):
   }
   if (transformers.includes("antigravity-auth")) {
     return "antigravity_oauth";
-  }
-  if (transformers.includes("xai-auth")) {
-    return "xai_oauth";
   }
   if (transformers.includes("codex")) {
     return apiKey.startsWith("at-") ? "codex_pat" : "codex_oauth";

@@ -13,7 +13,6 @@
  *
  * Usage:
  *   node scripts/run-tests.js                  # all hermetic tests (CI default)
- *   node scripts/run-tests.js --chrome-bridge  # also run Chrome bridge tests
  *   node scripts/run-tests.js --live cli       # live CCR → Anthropic tests
  *   node scripts/run-tests.js core cli         # only the named packages
  */
@@ -39,10 +38,6 @@ const PACKAGES = [
  * CI — the required services are operator-provided.
  */
 const OPT_IN_ONLY = {
-  'cli/ccr-anthropic-flow.test.ts': {
-    flag: '--chrome-bridge',
-    reason: 'needs a running CCR server plus `ccr chrome-bridge` on a Chrome with Gemini Nano',
-  },
   'cli/ccr-live.caching.test.ts': {
     flag: '--live',
     reason: 'needs a running CCR (LOG_LEVEL=debug) routed to a live Anthropic provider',

@@ -17,7 +17,6 @@ import {
   buildCachePrediction,
   classifyCacheOutcome,
   type CachePrediction,
-  type CursorCacheLifecycle,
 } from "./cache-outcome";
 import type { MessageDebugDirection } from "./message-debug";
 import { peekResponseBody } from "./stream-peek";
@@ -47,8 +46,6 @@ export type UpstreamSSEDebugOptions = {
   outboundBody?: Record<string, any> | null;
   /** Precomputed prediction; built from cacheDiff + family when absent. */
   cachePrediction?: CachePrediction | null;
-  /** Cursor lifecycle plan for conversation-cache prediction. */
-  cursorLifecycle?: CursorCacheLifecycle | null;
   /** Cap for a single logged payload string (raw `data` field). */
   maxBytes?: number;
   /**
@@ -216,11 +213,7 @@ function mergeCacheUsage(acc: CacheUsage, event: unknown): CacheUsage {
       cachedTokens: pickMax(next.cachedTokens, cached),
       cacheWriteTokens: pickMax(
         next.cacheWriteTokens,
-        pickMax(
-          num(usage.cache_creation_input_tokens),
-          // Cursor accurate usage projects write onto this diagnostic field.
-          num(usage._cacheWriteTokens)
-        )
+        num(usage.cache_creation_input_tokens)
       ),
       outputTokens: pickMax(
         next.outputTokens,
@@ -241,7 +234,6 @@ function resolvePrediction(opts: UpstreamSSEDebugOptions): CachePrediction {
     model: opts.model,
     body: opts.outboundBody,
     diff: opts.cacheDiff,
-    cursorLifecycle: opts.cursorLifecycle,
     conversationId: opts.conversationId,
   });
 }
@@ -264,7 +256,7 @@ function logCacheOutcome(opts: UpstreamSSEDebugOptions, usage: CacheUsage): void
       ? undefined
       : Math.round((cached / promptTotal) * 1000) / 1000;
 
-  if (cached === undefined && prompt === undefined && !diff && !opts.cursorLifecycle) {
+  if (cached === undefined && prompt === undefined && !diff) {
     return;
   }
 
@@ -282,12 +274,6 @@ function logCacheOutcome(opts: UpstreamSSEDebugOptions, usage: CacheUsage): void
     predictionReason: prediction.reason,
     ...(opts.model ? { model: opts.model } : {}),
     ...(opts.responseStatus ? { status: opts.responseStatus } : {}),
-    ...(prediction.lifecycleAction
-      ? { lifecycleAction: prediction.lifecycleAction }
-      : {}),
-    ...(prediction.hostPrefixIntact !== undefined
-      ? { hostPrefixIntact: prediction.hostPrefixIntact }
-      : {}),
     ...(diff
       ? {
           conversationId: prediction.conversationId || diff.conversationId,

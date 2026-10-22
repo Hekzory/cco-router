@@ -28,7 +28,6 @@
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.122",
     "@ai-sdk/openai": "3.0.117",
-    "@cursor/sdk": "^1.0.36",
     "ai": "6.0.290",
     "json5": "^2.2.3",
     "shell-quote": "^1.10.0",
@@ -44,7 +43,6 @@
     "find-process": "^2.1.1",
     "minimist": "^1.2.8",
     "openurl": "^1.1.1",
-    "puppeteer-core": "^25.7.0",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3"
   },

@@ -2,14 +2,13 @@ import type { CachePrefixDiff } from "./cache-prefix-debug";
 
 /**
  * Provider-family-specific cache contracts. OpenAI-style message prefix +
- * prompt_cache_key is only one of several; Cursor uses conversation/lifecycle,
+ * prompt_cache_key is only one of several;
  * Anthropic uses ephemeral breakpoints, Gemini uses cachedContent resources.
  */
 export type CacheFamily =
   | "openai_prefix"
   | "anthropic_ephemeral"
   | "gemini_cached_content"
-  | "cursor_conversation"
   | "deepseek_prefix"
   | "unknown";
 
@@ -29,31 +28,21 @@ export type CachePrediction = {
   predictedHit: boolean;
   /** Why we predicted miss/hit (for logs). */
   reason: string;
-  /** OpenAI-style prefix intactness when available (diagnostic for Cursor). */
+  /** OpenAI-style prefix intactness when available. */
   prefixIntact?: boolean;
   firstDivergencePath?: string;
   approxPrefixTokensLost?: number;
   conversationId?: string;
   conversationIdSource?: string;
-  /** Cursor lifecycle action when family is cursor_conversation. */
-  lifecycleAction?: string;
-  hostPrefixIntact?: boolean;
-};
 
-export type CursorCacheLifecycle = {
-  sessionKey?: string;
-  action: string;
-  reason?: string;
 };
 
 export type ResolveCacheFamilyInput = {
   provider?: string;
   model?: string;
   body?: Record<string, any> | null;
-  cursorLifecycle?: CursorCacheLifecycle | null;
 };
 
-const CURSOR_PROVIDER_RE = /\bcursor\b/i;
 const DEEPSEEK_PROVIDER_RE = /deepseek/i;
 const ANTHROPIC_PROVIDER_RE = /anthropic|claude/i;
 const GEMINI_PROVIDER_RE = /gemini|google|vertex/i;
@@ -102,9 +91,6 @@ function geminiCachedContentName(
  */
 export function resolveCacheFamily(input: ResolveCacheFamilyInput): CacheFamily {
   const provider = String(input.provider || "");
-  if (input.cursorLifecycle || CURSOR_PROVIDER_RE.test(provider)) {
-    return "cursor_conversation";
-  }
   if (DEEPSEEK_PROVIDER_RE.test(provider)) return "deepseek_prefix";
   if (ANTHROPIC_PROVIDER_RE.test(provider)) return "anthropic_ephemeral";
   if (GEMINI_PROVIDER_RE.test(provider)) return "gemini_cached_content";
@@ -175,7 +161,7 @@ function fromPrefixDiff(
   };
 }
 
-/** OpenAI Chat/Responses, Codex, Zen, Cerebras, OpenRouter, Mistral, xAI. */
+/** OpenAI Chat/Responses, Codex, Zen, Cerebras, OpenRouter, Mistral. */
 export function predictOpenAiPrefix(
   diff: CachePrefixDiff | null | undefined
 ): CachePrediction {
@@ -320,75 +306,6 @@ export function predictGeminiCachedContent(opts: {
   };
 }
 
-const CURSOR_HIT_ACTIONS = new Set(["resume-parked", "send-incremental"]);
-const CURSOR_FIRST_ACTIONS = new Set(["send-full"]);
-
-/**
- * Cursor has no prompt_cache_key. Prediction follows lifecycle:
- * resume/incremental → hit expected; retire/replay or fresh send → miss expected.
- */
-export function predictCursorConversation(opts: {
-  lifecycle?: CursorCacheLifecycle | null;
-  diff?: CachePrefixDiff | null;
-}): CachePrediction {
-  const lifecycle = opts.lifecycle;
-  const diff = opts.diff;
-  const action = lifecycle?.action || "";
-  const sessionKey = lifecycle?.sessionKey;
-
-  if (!action) {
-    // Fall back to OpenAI-style prefix if lifecycle was not stashed.
-    return fromPrefixDiff("cursor_conversation", diff, {
-      reason: "cursor-lifecycle-missing",
-      hostPrefixIntact: diff?.prefixIntact,
-    });
-  }
-
-  if (CURSOR_FIRST_ACTIONS.has(action) || action === "send-full") {
-    return {
-      family: "cursor_conversation",
-      firstTurn: true,
-      predictedHit: false,
-      reason: lifecycle?.reason || action,
-      lifecycleAction: action,
-      conversationId: sessionKey || diff?.conversationId,
-      conversationIdSource: sessionKey ? "session" : diff?.conversationIdSource,
-      hostPrefixIntact: diff?.prefixIntact,
-      prefixIntact: diff?.prefixIntact,
-    };
-  }
-
-  if (CURSOR_HIT_ACTIONS.has(action)) {
-    return {
-      family: "cursor_conversation",
-      firstTurn: false,
-      predictedHit: true,
-      reason: lifecycle?.reason || action,
-      lifecycleAction: action,
-      conversationId: sessionKey || diff?.conversationId,
-      conversationIdSource: sessionKey ? "session" : diff?.conversationIdSource,
-      hostPrefixIntact: diff?.prefixIntact,
-      // Do not use host message prefix as Cursor prediction; keep as diagnostic.
-      prefixIntact: true,
-    };
-  }
-
-  // retire-and-replay-full and any unknown retirement-like action
-  return {
-    family: "cursor_conversation",
-    firstTurn: false,
-    predictedHit: false,
-    reason: lifecycle?.reason || action || "cursor-retire",
-    lifecycleAction: action,
-    conversationId: sessionKey || diff?.conversationId,
-    conversationIdSource: sessionKey ? "session" : diff?.conversationIdSource,
-    hostPrefixIntact: diff?.prefixIntact,
-    prefixIntact: false,
-    firstDivergencePath: diff?.firstDivergencePath,
-    approxPrefixTokensLost: diff?.approxPrefixTokensLost,
-  };
-}
-
 /**
  * Build the right prediction for this outbound leg.
  */
@@ -397,22 +314,15 @@ export function buildCachePrediction(opts: {
   model?: string;
   body?: Record<string, any> | null;
   diff?: CachePrefixDiff | null;
-  cursorLifecycle?: CursorCacheLifecycle | null;
   conversationId?: string;
 }): CachePrediction {
   const family = resolveCacheFamily({
     provider: opts.provider,
     model: opts.model,
     body: opts.body,
-    cursorLifecycle: opts.cursorLifecycle,
   });
 
   switch (family) {
-    case "cursor_conversation":
-      return predictCursorConversation({
-        lifecycle: opts.cursorLifecycle,
-        diff: opts.diff,
-      });
     case "anthropic_ephemeral":
       return predictAnthropicEphemeral(opts.diff, opts.body);
     case "gemini_cached_content":

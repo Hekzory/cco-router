@@ -7,7 +7,6 @@ import {
   CODEX_CLI_VERSION,
   CONFIG_FILE,
   resolveCodexPat,
-  resolveXaiApiKey,
 } from "@caeliq/ccr-shared";
 import type { ProviderConfig } from "@caeliq/ccr-shared";
 import {
@@ -30,7 +29,6 @@ const ANTIGRAVITY_AUTH_FILE = join(
   "antigravity_auth.json"
 );
 const QWEN_AUTH_FILE = join(homedir(), ".claude-code-router", "qwen_auth.json");
-const XAI_AUTH_FILE = join(homedir(), ".claude-code-router", "xai_auth.json");
 const CONFIG_PATH_DISPLAY = "~/.claude-code-router/config.json";
 const READABLE_CONFIG_FILE = process.env.CCR_CONFIG_FILE || CONFIG_FILE;
 const CLAUDE_OAUTH_REQUIRED_BETA = "oauth-2025-04-20";
@@ -56,7 +54,7 @@ interface ConfigWithProviders {
 }
 
 interface ResolvedEndpoint {
-  kind: "openai" | "gemini" | "codex" | "cursor" | "anthropic" | "antigravity";
+  kind: "openai" | "gemini" | "codex" | "anthropic" | "antigravity";
   url: string;
 }
 
@@ -99,13 +97,6 @@ function isQwenAuthProvider(provider: ProviderConfig): boolean {
   return transformerUseIncludes(provider, "qwen-auth");
 }
 
-function isXaiAuthProvider(provider: ProviderConfig): boolean {
-  if (normalizeProviderName(provider.name) === "xai") {
-    return true;
-  }
-  return transformerUseIncludes(provider, "xai-auth");
-}
-
 function hostnameOf(urlLike: string): string {
   try {
     return new URL(urlLike).hostname.toLowerCase();
@@ -124,14 +115,6 @@ function isAnthropicProvider(provider: ProviderConfig): boolean {
     host.endsWith(".api.anthropic.com") ||
     transformerUseIncludes(provider, "anthropic")
   );
-}
-
-function isCursorProvider(provider: ProviderConfig): boolean {
-  if (normalizeProviderName(provider.name) === "cursor") {
-    return true;
-  }
-
-  return transformerUseIncludes(provider, "cursor-sdk");
 }
 
 if (!READABLE_CONFIG_FILE) {
@@ -220,51 +203,7 @@ function getQwenAccessToken(): string {
   return tokens.token;
 }
 
-function getXaiAccessToken(): string {
-  if (!existsSync(XAI_AUTH_FILE)) {
-    throw new Error("No xAI OAuth tokens found. Run `ccr xai-auth` to authenticate.");
-  }
-
-  let tokens: { access_token?: string; expires_at?: number };
-  try {
-    tokens = JSON.parse(readFileSync(XAI_AUTH_FILE, "utf-8"));
-  } catch {
-    throw new Error("Failed to read xAI OAuth tokens from ~/.claude-code-router/xai_auth.json.");
-  }
-
-  if (!isNonEmptyString(tokens.access_token)) {
-    throw new Error("xAI OAuth access token is missing. Run `ccr xai-auth` again.");
-  }
-
-  // expires_at is best-effort — xAI doesn't always return expires_in (see
-  // core utils/xai-auth.ts) — so only fail closed when it's actually present.
-  if (typeof tokens.expires_at === "number" && tokens.expires_at <= Date.now() / 1000) {
-    throw new Error("xAI OAuth access token is expired. Run `ccr xai-auth` again.");
-  }
-
-  return tokens.access_token;
-}
-
 function getRequestApiKey(provider: ProviderConfig): string | undefined {
-  if (isCursorProvider(provider)) {
-    const apiKey = getProviderApiKey(provider)?.trim();
-    // Mirror server resolveCursorApiKey: only concrete crsr_ keys from config;
-    // unresolved ${ENV} placeholders are already stripped by getProviderApiKey.
-    if (
-      apiKey &&
-      apiKey.startsWith("crsr_") &&
-      !apiKey.includes("${") &&
-      !apiKey.includes("$CURSOR_API_KEY")
-    ) {
-      return apiKey;
-    }
-    const fromEnv = process.env.CURSOR_API_KEY?.trim();
-    if (fromEnv) {
-      return fromEnv;
-    }
-    return undefined;
-  }
-
   if (isClaudeAuthProvider(provider)) {
     return getClaudeAccessToken();
   }
@@ -279,14 +218,6 @@ function getRequestApiKey(provider: ProviderConfig): string | undefined {
     return getQwenAccessToken();
   }
 
-  // xAI: a literal xai-... key (or $VAR reference to one) bypasses OAuth
-  // entirely, mirroring Codex's PAT/OAuth split; otherwise fall back to the
-  // stored device-code OAuth token.
-  if (isXaiAuthProvider(provider)) {
-    const pat = resolveXaiApiKey(getProviderApiKey(provider), { allowBareEnvName: true });
-    return pat || getXaiAccessToken();
-  }
-
   return getProviderApiKey(provider);
 }
 
@@ -294,11 +225,6 @@ function getMissingApiKeyMessage(provider: ProviderConfig): string {
   if (normalizeProviderName(provider.name) === "codex") {
     return "Codex authentication unavailable. No valid api_key (PAT) and no OAuth tokens found. " +
            "Set api_key to a PAT, or run `ccr codex-auth` for OAuth.";
-  }
-
-  if (isCursorProvider(provider)) {
-    return "Cursor authentication unavailable. Set Providers[].api_key to a crsr_ key, " +
-           "or export CURSOR_API_KEY.";
   }
 
   if (isClaudeAuthProvider(provider)) {
@@ -311,10 +237,6 @@ function getMissingApiKeyMessage(provider: ProviderConfig): string {
 
   if (isQwenAuthProvider(provider)) {
     return "Qwen authentication unavailable. Run `ccr qwen-auth` to authenticate.";
-  }
-
-  if (isXaiAuthProvider(provider)) {
-    return "xAI authentication unavailable. Set api_key to a xai-... key, or run `ccr xai-auth` for OAuth.";
   }
 
   return `Provider \"${provider.name}\" does not have a usable API key configured.`;
@@ -397,10 +319,6 @@ function deriveAnthropicModelsUrl(apiBaseUrl: string): string {
 
 function resolveModelsEndpoint(provider: ProviderConfig): ResolvedEndpoint {
   const normalizedName = normalizeProviderName(provider.name);
-
-  if (isCursorProvider(provider)) {
-    return { kind: "cursor", url: "Cursor.models.list (@cursor/sdk)" };
-  }
 
   if (normalizedName === "gemini") {
     const url = provider.models_api_url || "https://generativelanguage.googleapis.com/v1beta/models";
@@ -628,36 +546,6 @@ async function fetchCodexModels(url: string, provider: ProviderConfig): Promise<
     .filter(Boolean);
 }
 
-async function fetchCursorModels(apiKey: string): Promise<string[]> {
-  let Cursor: { models: { list: (opts?: { apiKey?: string }) => Promise<any[]> } };
-  try {
-    ({ Cursor } = await import("@cursor/sdk"));
-  } catch (error: any) {
-    throw new Error(
-      `Failed to load @cursor/sdk for Cursor model discovery: ${error?.message || error}`
-    );
-  }
-
-  let models: any[];
-  try {
-    models = await Cursor.models.list({ apiKey });
-  } catch (error: any) {
-    const message = error?.message || String(error);
-    if (/auth|unauthorized|api.?key|401|403/i.test(message)) {
-      throw new Error(`Invalid API key or insufficient permissions: ${message}`);
-    }
-    throw new Error(`Cursor.models.list failed: ${message}`);
-  }
-
-  if (!Array.isArray(models)) {
-    throw new Error("Unsupported Cursor SDK response: expected a models array");
-  }
-
-  return models
-    .map((model: any) => (typeof model?.id === "string" ? model.id.trim() : ""))
-    .filter(Boolean);
-}
-
 async function fetchCustomModels(
   apiKey: string | undefined,
   url: string,
@@ -761,11 +649,6 @@ async function fetchAntigravityModels(provider: ProviderConfig): Promise<string[
 }
 
 async function fetchRemoteModels(apiKey: string | undefined, provider: ProviderConfig, endpoint: ResolvedEndpoint): Promise<string[]> {
-  if (endpoint.kind === "cursor") {
-    if (!apiKey) throw new Error(getMissingApiKeyMessage(provider));
-    return fetchCursorModels(apiKey);
-  }
-
   if (endpoint.kind === "antigravity") {
     return fetchAntigravityModels(provider);
   }
@@ -801,10 +684,6 @@ function getEndpointHelpText(provider: ProviderConfig, endpoint: ResolvedEndpoin
     return "Antigravity discovery calls POST /v1internal:fetchAvailableModels with OAuth (project id optional).";
   }
 
-  if (endpoint.kind === "cursor") {
-    return `Cursor discovery uses Cursor.models.list and writes ids into Providers[].models (no cursor-models.json side cache).`;
-  }
-
   if (endpoint.kind === "anthropic") {
     return `Anthropic parsing uses data[].id for provider \"${provider.name}\".`;
   }
@@ -832,15 +711,6 @@ function printAuthSource(provider: ProviderConfig): void {
     return;
   }
 
-  if (isCursorProvider(provider)) {
-    const apiKey = getProviderApiKey(provider);
-    if (apiKey && apiKey.startsWith("crsr_")) {
-      console.log(`${BOLDCYAN}Auth source:${RESET} api_key (crsr_...)`);
-    } else {
-      console.log(`${BOLDCYAN}Auth source:${RESET} CURSOR_API_KEY`);
-    }
-  }
-
   if (isClaudeAuthProvider(provider)) {
     console.log(`${BOLDCYAN}Auth source:${RESET} ${CLAUDE_AUTH_FILE}`);
   }
@@ -853,14 +723,6 @@ function printAuthSource(provider: ProviderConfig): void {
     console.log(`${BOLDCYAN}Auth source:${RESET} ${QWEN_AUTH_FILE}`);
   }
 
-  if (isXaiAuthProvider(provider)) {
-    const pat = resolveXaiApiKey(getProviderApiKey(provider), { allowBareEnvName: true });
-    if (pat) {
-      console.log(`${BOLDCYAN}Auth source:${RESET} api_key (xai-...)`);
-    } else {
-      console.log(`${BOLDCYAN}Auth source:${RESET} ${XAI_AUTH_FILE}`);
-    }
-  }
 }
 
 function printRequestContext(provider: ProviderConfig, endpoint: ResolvedEndpoint): void {
@@ -897,7 +759,7 @@ function printSuccess(provider: ProviderConfig, endpoint: ResolvedEndpoint, mode
   console.log(`\n${BOLDCYAN}Provider:${RESET} ${provider.name}`);
   console.log(
     `${BOLDCYAN}Endpoint:${RESET} ${
-      endpoint.kind === "cursor" ? endpoint.url : maskApiKeyInUrl(endpoint.url)
+      maskApiKeyInUrl(endpoint.url)
     }`
   );
   console.log(`${BOLDCYAN}Remote models:${RESET} ${models.length}`);

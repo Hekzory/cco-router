@@ -23,7 +23,6 @@ Unified v2 MUST represent the information required by:
 - Vertex Gemini variants
 - Antigravity envelopes and Gemini dialect variants
 - Gemini Interactions, including continuation, background execution, stateful resources, and events
-- Cursor SDK agents, sessions, runs, parked tools, progress/thinking, and resumable output
 
 Any source format MAY be projected to any target format. A projection MUST report unrepresentable semantics and MUST NOT silently discard, weaken, or fabricate required behavior.
 
@@ -76,7 +75,6 @@ interface UnifiedProtocolProfile {
     | "gemini-interactions"
     | "vertex-gemini"
     | "antigravity"
-    | "cursor-sdk"
     | string;
   version?: string;
   revision?: string;
@@ -214,7 +212,7 @@ Large inline content SHOULD be externalized to the artifact store at persistence
 
 Observable reasoning text or summaries belong in canonical history. A source-visible redaction marker also belongs in canonical history.
 
-Encrypted reasoning, Anthropic signatures, Gemini thought signatures, OpenAI private continuation data, and Cursor-private agent state MUST be represented as encrypted owner-private resources referenced from items or checkpoints. Synthetic signatures MUST be marked as synthetic and MUST NOT be confused with provider-issued state.
+Encrypted reasoning, Anthropic signatures, Gemini thought signatures, OpenAI private continuation data, and other provider-private state MUST be represented as encrypted owner-private resources referenced from items or checkpoints. Synthetic signatures MUST be marked as synthetic and MUST NOT be confused with provider-issued state.
 
 ## Tools and agent lifecycle
 
@@ -324,7 +322,7 @@ interface UnifiedCacheIntent {
 }
 ```
 
-Portable cache intent is separate from provider-owned cache resources. A Gemini cached-content name, OpenAI response/conversation ID, Anthropic container, or Cursor session is not a portable cache key.
+Portable cache intent is separate from provider-owned cache resources. A Gemini cached-content name, OpenAI response/conversation ID, or Anthropic container is not a portable cache key.
 
 Cache usage MUST distinguish uncached input, cache reads, and cache writes/creation where reported. Unknown counters MUST remain unknown rather than becoming zero.
 
@@ -368,7 +366,7 @@ Every counter declares:
 - Scope: `request`, `operation`, `session`, or `cumulative`
 - Source: `reported`, `estimated`, or `derived`
 
-This prevents a cumulative Cursor session counter from being interpreted as per-turn usage.
+This prevents a cumulative session counter from being interpreted as per-turn usage.
 
 Status and finish reasons include stop, length, tool calls, content filtering/safety, refusal, max context, malformed tool call, requires action, paused, cancelled, interrupted, failed, incomplete, and unknown provider reason. Original reasons remain available through registered annotations.
 

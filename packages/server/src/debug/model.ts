@@ -3,7 +3,6 @@ import {
   getClaudeAccessToken,
   getCodexAccessToken,
   getQwenAccessToken,
-  getXaiAccessToken,
 } from "@caeliq/llms";
 import { CODEX_CLI_VERSION, resolveCodexPat } from "@caeliq/ccr-shared";
 import {
@@ -84,15 +83,13 @@ export type OAuthKind =
   | "claude-auth"
   | "codex"
   | "qwen-auth"
-  | "antigravity-auth"
-  | "xai-auth";
+  | "antigravity-auth";
 
 export function oauthKindForProvider(provider: any): OAuthKind | null {
   const names = transformerNames(provider).map((n) => n.toLowerCase());
   if (names.includes("claude-auth")) return "claude-auth";
   if (names.includes("qwen-auth")) return "qwen-auth";
   if (names.includes("antigravity-auth")) return "antigravity-auth";
-  if (names.includes("xai-auth")) return "xai-auth";
   if (names.includes("codex")) {
     if (codexPatForProvider(provider)) return null;
     return "codex";
@@ -160,8 +157,7 @@ async function oauthAccessToken(kind: OAuthKind): Promise<string> {
     const tokens = await getAntigravityAccessToken();
     return String(tokens.access_token || "");
   }
-  const tokens = await getXaiAccessToken();
-  return String(tokens.access_token || "");
+  throw new Error(`Unsupported OAuth provider: ${kind}`);
 }
 
 export function authHeadersForProvider(

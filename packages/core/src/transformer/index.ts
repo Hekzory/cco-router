@@ -24,12 +24,9 @@ import { QwenAuthTransformer } from "./qwen-auth.transformer";
 import { ForceReasoningTransformer } from "./forcereasoning.transformer";
 import { ExtraThinkTagTransformer } from "./extrathinktag.transformer";
 import { MistralTransformer } from "./mistral.transformer";
-import { ChromeOnDeviceTransformer } from "./chrome-on-device.transformer";
 import { OpencodeHeadersTransformer } from "./opencode-headers.transformer";
 import { ClaudeAuthTransformer } from "./claude-auth.transformer";
-import { CursorSdkTransformer } from "./cursor-sdk.transformer";
 import { AntigravityAuthTransformer } from "./antigravity-auth.transformer";
-import { XaiAuthTransformer } from "./xai-auth.transformer";
 import {
   FimTransformer,
   FimMistralTransformer,
@@ -64,12 +61,9 @@ export default {
   ForceReasoningTransformer,
   ExtraThinkTagTransformer,
   MistralTransformer,
-  ChromeOnDeviceTransformer,
   OpencodeHeadersTransformer,
   ClaudeAuthTransformer,
-  CursorSdkTransformer,
   AntigravityAuthTransformer,
-  XaiAuthTransformer,
   FimTransformer,
   FimMistralTransformer,
   FimDeepseekTransformer,

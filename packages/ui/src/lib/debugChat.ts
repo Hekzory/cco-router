@@ -487,13 +487,12 @@ export function isLiteralApiKey(apiKey?: string): boolean {
 
 export function oauthRenewKind(
   provider?: Provider | null
-): "claude-auth" | "codex" | "qwen-auth" | "antigravity-auth" | "xai-auth" | null {
+): "claude-auth" | "codex" | "qwen-auth" | "antigravity-auth" | null {
   const hint = provider ? getAuthHintKey(provider) : null;
   if (hint === "claude_oauth") return "claude-auth";
   if (hint === "qwen_jwt") return "qwen-auth";
   if (hint === "codex_oauth") return "codex";
   if (hint === "antigravity_oauth") return "antigravity-auth";
-  if (hint === "xai_oauth") return "xai-auth";
   return null;
 }
 

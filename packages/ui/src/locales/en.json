@@ -122,7 +122,6 @@
       "codex_pat": "Codex PAT auth",
       "codex_oauth": "Codex OAuth auth",
       "antigravity_oauth": "Antigravity OAuth",
-      "xai_oauth": "xAI OAuth",
       "missing_api_key": "Missing API key",
       "env_auth": "Environment variable auth"
     }

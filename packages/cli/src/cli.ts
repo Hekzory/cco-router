@@ -22,10 +22,8 @@ import { handleInstallCommand } from "./utils/installCommand";
 import { runCodexAuth } from "./utils/codex-cli-auth";
 import { codexConfigCommand } from "./utils/codexConfig";
 import { runQwenAuth } from "./utils/qwen-cli-auth";
-import { runChromeBridge } from "./utils/chrome-device-bridge";
 import { runClaudeAuth } from "./utils/claude-auth-cli";
 import { runAntigravityAuth } from "./utils/antigravity-cli-auth";
-import { runXaiAuth } from "./utils/xai-auth-cli";
 
 
 const command = process.argv[2];
@@ -49,8 +47,6 @@ const KNOWN_COMMANDS = [
   "qwen-auth",
   "claude-auth",
   "antigravity-auth",
-  "xai-auth",
-  "chrome-bridge",
   "-v",
   "version",
   "-h",
@@ -82,10 +78,6 @@ Commands:
   claude-auth   Show Claude Code OAuth credential status and provider config
   antigravity-auth  Authenticate with Google Antigravity via OAuth
                     Options: --manual, --project <id>
-  xai-auth      Authenticate with xAI Grok via SuperGrok/X Premium+ OAuth
-                (device code, no browser callback needed), or use a plain
-                XAI_API_KEY / xai-... api_key instead
-  chrome-bridge Start Chrome on-device model bridge (for Gemini Nano)
   -v, version   Show version information
   -h, help      Show help information
 
@@ -350,26 +342,6 @@ async function main() {
     case "antigravity-auth":
       await runAntigravityAuth();
       break;
-    case "xai-auth":
-      await runXaiAuth();
-      break;
-    case "chrome-bridge": {
-      // Parse optional --port and --cdp flags
-      let port = 3457;
-      let cdpPort = 9222;
-      const args = process.argv.slice(3);
-      for (let i = 0; i < args.length; i++) {
-        if (args[i] === "--port" && args[i + 1]) {
-          port = parseInt(args[i + 1], 10);
-          i++;
-        } else if (args[i] === "--cdp" && args[i + 1]) {
-          cdpPort = parseInt(args[i + 1], 10);
-          i++;
-        }
-      }
-      await runChromeBridge(port, cdpPort);
-      break;
-    }
     case "activate":
     case "env":
       await activateCommand();

@@ -33,7 +33,6 @@ const sidebars: SidebarsConfig = {
             'cli/commands/preset',
             'cli/commands/auth',
             'cli/commands/codex-config',
-            'cli/commands/chrome-bridge',
             'cli/commands/other',
           ],
         },
@@ -115,9 +114,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'server/guides/claude-auth',
             'server/guides/codex',
-            'server/guides/cursor',
             'server/guides/qwen',
-            'server/guides/chrome-on-device',
             'server/guides/deepseek-reasoning',
             'server/guides/model-discovery',
             'server/guides/prompt-caching',

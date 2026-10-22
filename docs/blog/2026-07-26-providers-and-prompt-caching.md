@@ -46,6 +46,6 @@ Added **Antigravity OAuth** (`ccr antigravity-auth`) for Google Antigravity-back
 ## Documentation
 
 - [Claude Auth](/docs/server/guides/claude-auth)
-- [Cursor SDK](/docs/server/guides/cursor)
+- [Cursor SDK](https://github.com/Hekzory/cco-router/blob/v3.0.0/docs/docs/server/guides/cursor.md)
 - [Codex Integration](/docs/server/guides/codex)
 - [Earlier fork timeline](/blog/2026/06/01/fork-changelog)

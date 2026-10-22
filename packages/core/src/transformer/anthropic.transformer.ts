@@ -21,7 +21,6 @@ import {
   unifiedToolContentToAnthropic,
   unifiedUserPartToAnthropic,
 } from "@/utils/tool-content";
-import { buildAnthropicRequestRuntime } from "@/types/turn-intent";
 import { transformResponseOut as anthropicWireToUnifiedResponse } from "../utils/vertex-claude.util";
 import {
   lookupClaudeModelCatalogEntry,
@@ -54,7 +53,7 @@ import {
   thinkingFromUnifiedAssistant,
 } from "../utils/openai.responses.util";
 
-import { estimateRequestPromptTokens } from "../cursor-sdk/usage";
+import { estimateRequestPromptTokens } from "../utils/estimate-prompt-tokens";
 
 /**
  * Anthropic-defined tools (server tools such as `web_search_20250305`, and
@@ -333,10 +332,6 @@ export class AnthropicTransformer implements Transformer {
     request: Record<string, any>,
     context?: TransformerContext
   ): Promise<UnifiedChatRequest> {
-    if (context) {
-      context.unifiedRequest = buildAnthropicRequestRuntime(request);
-    }
-
     const messages: UnifiedMessage[] = [];
 
     if (request.system) {
@@ -661,7 +656,6 @@ export class AnthropicTransformer implements Transformer {
 
     if (context) {
       // Keep a full Unified request for early message_start usage estimates.
-      // context.unifiedRequest is turn-intent only and is too sparse to meter.
       (context as any).anthropicEstimateRequest = result;
     }
 

@@ -249,42 +249,6 @@ Responses `input` / tools ↔ Unified；作为提供商出站时重建 Responses
   fallback 之前取消；bootstrap 阶段的传输失败会作为错误向上传播，而不是
   返回成功但被截断的流。
 
-### cursor-sdk
-
-通过 `@cursor/sdk` 在进程内运行 Cursor 模型（不会对 `api_base_url` 发起 HTTP fetch）。
-
-```json
-{
-  "name": "cursor",
-  "api_base_url": "https://cursor.com",
-  "api_key": "$CURSOR_API_KEY",
-  "models": ["composer-2"],
-  "transformer": {
-    "use": [
-      [
-        "cursor-sdk",
-        {
-          "cursorMode": "bridge"
-        }
-      ]
-    ]
-  }
-}
-```
-
-**功能：**
-- 拥有上游 Agent create/send/stream 调用，并通过 `__providerResponse` 返回 OpenAI 兼容 SSE/JSON
-- 默认 `cursorMode: "bridge"` — Claude Code 托管工具，拒绝 Cursor 内置工具
-- 可选模式：`plan`、`agent`（可配 `cursorCwd`）
-- 认证：以 `crsr_` 开头的 `api_key`，或 `CURSOR_API_KEY`
-- 通过 `ccr model get` 使用 `Cursor.models.list` 发现模型
-
-另见：
-- [Codex 集成指南](/docs/server/guides/codex)
-- [Claude 订阅集成指南](/docs/server/guides/claude-auth)
-- [Cursor SDK 集成指南](/docs/server/guides/cursor)
-- [CLI 认证命令](/docs/cli/commands/auth)
-
 ### antigravity-auth
 
 用于 Google Antigravity 网关（`cloudcode-pa`）的 OAuth + 请求封包中间件。

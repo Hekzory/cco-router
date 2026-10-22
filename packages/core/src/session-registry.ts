@@ -1,48 +1,17 @@
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
+import { homedir, tmpdir } from "os";
 import { join } from "path";
-import { CCR_HOME } from "./cursor-sdk/shared";
 
 /**
  * Persistent registry for every session identity CCR mints.
- *
- * Several families, one mechanism — the stable lookup key already exists in each
- * case (Zen conversation id, cursor buildSessionKey hash); only the minted
- * value used to live in process memory and died on restart:
- *
- * - "zen":    conversationKey -> x-opencode-session (ses_…)
- * - "cursor": sessionKey      -> { agentId, workspaceDir, model }
- * - "cursor-inbound": hashed protocol conversation key -> internal Cursor id
- *   (cursor-sdk/inbound-session.ts; written on mint, claim, new user text,
- *   and at most hourly as a TTL refresh)
- *
- * The file lives under CCR_HOME (the mounted ~/.claude-code-router volume),
- * so bindings survive both restarts and image rebuilds. Plain JSON: values
- * are short strings, not blobs (unlike cursor-opencode-provider's pb.gz,
- * which persists raw Cursor protocol state we never see — the SDK owns that).
  *
  * Synchronous API, tiny file (entries capped per family), persistence on
  * writes only — never on the read path.
  */
 
 export type PersistedSession = {
-  /** The fixed CCR-minted id (ses_… for zen; SDK agentId for cursor). */
+  /** The fixed CCR-minted id (ses_… for Zen). */
   sessionId: string;
-  workspaceDir?: string;
-  model?: string;
-  /** `id|sorted params` from cursorModelFingerprint. Missing means pre-variant binding. */
-  modelFingerprint?: string;
-  /**
-   * Cursor inbound opening row: a follow-up turn claimed it. A repeated
-   * opening then needs a fresh id.
-   */
-  progressed?: boolean;
-  /**
-   * Cursor inbound opening row that replaced an unclaimed opening of an
-   * identical earlier conversation. A follow-up cannot tell the two apart,
-   * so it gets a fresh agent instead of claiming this one.
-   */
-  contested?: boolean;
   updatedAt: number;
 };
 
@@ -54,7 +23,7 @@ function registryDir(): string {
   const override = process.env.CCR_SESSION_REGISTRY_DIR?.trim();
   if (override) return override;
   try {
-    return CCR_HOME;
+    return join(homedir(), ".claude-code-router");
   } catch {
     return tmpdir();
   }
@@ -75,10 +44,6 @@ let startupPrunedFile = "";
 
 function compositeKey(family: string, key: string): string {
   return `${family}\0${key}`;
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value ? value : undefined;
 }
 
 function loadLocked(now: number): Map<string, PersistedSession> {
@@ -108,16 +73,8 @@ function loadLocked(now: number): Map<string, PersistedSession> {
           ) {
             continue;
           }
-          const workspaceDir = optionalString(binding.workspaceDir);
-          const model = optionalString(binding.model);
-          const modelFingerprint = optionalString(binding.modelFingerprint);
           loaded.set(compositeKey(family, key), {
             sessionId: binding.sessionId,
-            ...(workspaceDir ? { workspaceDir } : {}),
-            ...(model ? { model } : {}),
-            ...(modelFingerprint ? { modelFingerprint } : {}),
-            ...(binding.progressed === true ? { progressed: true } : {}),
-            ...(binding.contested === true ? { contested: true } : {}),
             updatedAt: binding.updatedAt,
           });
         }
@@ -142,8 +99,7 @@ function loadLocked(now: number): Map<string, PersistedSession> {
 function persistLocked(entries: Map<string, PersistedSession>): void {
   const file = registryFile();
   const families: Record<string, Record<string, PersistedSession>> = {};
-  // The cap applies per family, so churn in one family (Cursor inbound
-  // bindings) cannot evict another's (Cursor agents, Zen sessions).
+  // Cap each family independently so unrelated sessions do not evict each other.
   // Oldest-first so the cap evicts stale bindings, not fresh ones.
   const byFamily = new Map<string, Array<[string, PersistedSession]>>();
   for (const entry of entries) {
@@ -215,32 +171,6 @@ export function putPersistedSession(
   entries.set(compositeKey(family, key), binding);
   persistLocked(entries);
   return { ...binding };
-}
-
-/**
- * Apply several writes to one family with a single file rewrite: `put`
- * entries are stored (overwriting), then `remove` keys are dropped.
- */
-export function updatePersistedSessions(
-  family: string,
-  changes: {
-    put?: Array<{ key: string; value: Omit<PersistedSession, "updatedAt"> }>;
-    remove?: string[];
-  },
-  now = Date.now()
-): void {
-  if (!family) return;
-  const entries = loadLocked(now);
-  let changed = false;
-  for (const { key, value } of changes.put || []) {
-    if (!key) continue;
-    entries.set(compositeKey(family, key), { ...value, updatedAt: now });
-    changed = true;
-  }
-  for (const key of changes.remove || []) {
-    if (key && entries.delete(compositeKey(family, key))) changed = true;
-  }
-  if (changed) persistLocked(entries);
 }
 
 /** Forget a binding (session retire, Zen bucket re-roll). */

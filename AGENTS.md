@@ -26,9 +26,9 @@ The fastest way to start and verify the build is using Docker Compose:
 *Alternative (Local Development)*: If you prefer to run locally without Docker, run `pnpm install` first, then use the `pnpm dev:*` commands.
 
 ## Knowledge Base
-For critical lessons learned regarding LLM provider integrations (e.g., DeepSeek reasoning replay, Mistral thinking formats, Gemini streaming issues, Gemini Nano constraints), refer to `tasks/lessons.md`. This file contains the "hard-won" knowledge required to avoid common provider-specific pitfalls.
+For critical lessons learned regarding LLM provider integrations (e.g., DeepSeek reasoning replay, Mistral thinking formats, Gemini streaming issues), refer to `tasks/lessons.md`. This file contains the "hard-won" knowledge required to avoid common provider-specific pitfalls.
 
-For tracked improvements, planned features, and known issues (especially for the Chrome On-Device bridge), refer to `tasks/TODO.md`.
+For tracked improvements, planned features, and known issues, refer to `tasks/TODO.md`.
 
 ## Build Commands
 
@@ -85,7 +85,6 @@ catch it here instead.
 pnpm typecheck            # tsc --noEmit across all packages
 pnpm lint                 # eslint across all packages
 pnpm test                 # all hermetic tests
-pnpm test:chrome-bridge   # additionally runs the Chrome bridge test
 pnpm test:live            # live CCR → Anthropic thinking + caching tests (cli)
 ```
 
@@ -98,12 +97,7 @@ Tests run from their owning package directory so core's `@/*` path alias
 resolves; invoking `npx tsx packages/core/src/tests/foo.ts` from the repo root
 fails for that reason.
 
-`ccr-anthropic-flow.test.ts` is an end-to-end check of the
-Claude Code → CCR → Gemini Nano bridge → CCR round trip. It needs a running CCR
-server plus `ccr chrome-bridge` against a Chrome with Gemini Nano available, so
-it is opt-in via `--chrome-bridge` and never runs in CI. Register any other test
-with operator-provided dependencies in `OPT_IN_ONLY` in the runner (an entry may
-set its own `timeoutMs`).
+Tests with operator-provided dependencies are opt-in through `OPT_IN_ONLY` in the runner and never run in CI.
 
 `ccr-live.thinking.test.ts` and `ccr-live.caching.test.ts` (opt-in via `--live`)
 drive a running CCR routed to a live Anthropic provider through all three chat
@@ -374,7 +368,6 @@ ccr codex-config  # Publish CCR models to Codex (config.toml + model catalog)
 ccr claude-auth   # Authenticate with Claude Pro/Max subscription via OAuth
 ccr qwen-auth     # Authenticate with Qwen Chat (JWT from localStorage)
 ccr antigravity-auth  # Authenticate with Google Antigravity via OAuth
-ccr chrome-bridge # Start Chrome on-device model bridge (Gemini Nano) — must run on host
 ```
 
 ### Preset Commands
@@ -480,10 +473,8 @@ ui (standalone frontend application)
 
 1. **Node.js version**: Floor is **>= 22.19.0**, declared in `engines.node` of every
    workspace package (root, core, cli, shared, server, ui, docs) — keep them identical.
-   The floor is set by `undici` (`>=22.19.0`); `@cursor/sdk` needs `>=22.13`. Build-only
-   deps ask for more (`react-router@8` wants `>=22.22.0`, `puppeteer-core` `>=22.12.0`)
-   but never reach an installed user: the UI ships as a prebuilt `index.html` and
-   `puppeteer-core` is a lazily-required devDependency.
+   The floor is set by `undici` (`>=22.19.0`). Build-only dependencies can ask for
+   more (`react-router@8` wants `>=22.22.0`); the UI ships as prebuilt HTML.
    Runtime pins are separate and track the newest Node 22 LTS patch (`22.23.2` in the
    Dockerfile, `node-version: "22"` in CI). Bump the pin freely; only raise the floor
    when a runtime dependency actually demands it. esbuild `--target=node22` in all four

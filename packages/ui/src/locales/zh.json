@@ -122,7 +122,6 @@
       "codex_pat": "Codex PAT 认证",
       "codex_oauth": "Codex OAuth 认证",
       "antigravity_oauth": "Antigravity OAuth",
-      "xai_oauth": "xAI OAuth",
       "missing_api_key": "缺少 API 密钥",
       "env_auth": "环境变量认证"
     }
