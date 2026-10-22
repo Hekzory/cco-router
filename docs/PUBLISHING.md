@@ -2,17 +2,17 @@
 
 ## cco-router
 
-The first cco-router product release is `3.0.0` (core `1.0.75`), without a fork
-suffix. Releases are bundled CLI archives in `Hekzory/cco-router`, not npm
-publications. Package names, archive prefix and `ccr` stay unchanged for now,
-so installed launchers and config paths keep working. Do not rename an old tag
+Release versions: product `3.0.1`, core `1.0.76`, without a fork suffix.
+Releases are bundled CLI archives in `Hekzory/cco-router`, not npm publications.
+Package names, archive prefix and `ccr` stay unchanged for now, so installed
+launchers and config paths keep working. Do not rename an old tag
 or replace a published archive.
 
 After build, typecheck, lint and hermetic tests pass, tag the CLI version:
 
 ```bash
-git tag v3.0.0
-git push origin v3.0.0
+git tag v3.0.1
+git push origin v3.0.1
 ```
 
 `release.yml` repeats the checks, tests a clean archive installation, and
@@ -20,7 +20,7 @@ publishes the `.tgz` and `SHA256SUMS`. Install by the pinned release URL;
 no GitHub token is needed. Never replace an existing release asset.
 
 ```bash
-npm install --ignore-scripts https://github.com/Hekzory/cco-router/releases/download/v3.0.0/caeliq-claude-code-router-3.0.0.tgz
+npm install --ignore-scripts https://github.com/Hekzory/cco-router/releases/download/v3.0.1/caeliq-claude-code-router-3.0.1.tgz
 ```
 
 Upstream npm, Docker and Pages workflows run only in the upstream repository.

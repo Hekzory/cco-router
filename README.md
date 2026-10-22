@@ -8,7 +8,7 @@ Packages ship in [GitHub Releases](https://github.com/Hekzory/cco-router/release
 
 Other provider adapters remain inherited functionality. The documentation below retains their reference material, not a commitment to expand multi-provider support.
 
-The next release removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted. Bundled Ollama, Volcengine and SiliconFlow examples are also removed; generic OpenAI-compatible routing remains available.
+Release **3.0.1** removes Cursor SDK, xAI Grok authentication and Chrome On-Device integration, including `ccr xai-auth` and `ccr chrome-bridge`. Remove or replace providers using `cursor-sdk`, `xai-auth` or `chrome-on-device` before upgrading; unknown transformers now prevent that provider from registering rather than silently running an incomplete chain. Local credentials and config files are not deleted. Bundled Ollama, Volcengine and SiliconFlow examples are also removed; generic OpenAI-compatible routing remains available.
 
 The built-in Status Line, its UI editor and `ccr statusline` are also removed. Remove any manually configured `ccr statusline` command from Claude Code settings; the router no longer installs one.
 

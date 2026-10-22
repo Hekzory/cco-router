@@ -1,6 +1,6 @@
 {
   "name": "@caeliq/claude-code-router",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "cco-router: Claude Code through an OpenAI subscription",
   "repository": {
     "type": "git",
